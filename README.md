@@ -1,2 +1,157 @@
 # Infinite-Game-Research
-A finite game is played for the purpose of winning, an infinite game for the purpose of continuing the play. — James P. Carse, Finite and Infinite Games
+
+> A finite game is played for the purpose of winning, an infinite game for the purpose of continuing the play.  
+> — James P. Carse, *Finite and Infinite Games*
+
+---
+
+## 项目简介
+
+这是一个开发项目的并行研究仓库，用于进行理论展示和测试数据分析。Infinite Game 是一个基于反身性原理的交易所模拟器，用于研究金融市场中的结构涌现和演化机制。
+
+**开发仓库**: [`Infinite-Game`](../Infinite-Game) (本地路径: `/Users/liugang/Cursor_Store/Infinite-Game`)
+
+---
+
+## 文档导航
+
+### 📚 核心文档
+
+1. **[理论框架](THEORETICAL_FRAMEWORK.md)**  
+   完整的理论框架文档，包括：
+   - 哲学基础（有限与无限游戏）
+   - 核心理论概念（反身性、涌现、协议、相变）
+   - 系统架构理论
+   - 反身性机制详解
+   - 涌现与复杂性分析
+   - 范式演进（V0 → V4.x → V5.0）
+
+2. **[研究论文](RESEARCH_PAPER.md)**  
+   学术研究论文（草稿），包括：
+   - 摘要与关键词
+   - 引言与研究问题
+   - 文献综述
+   - 理论框架
+   - 系统设计
+   - 实验设计与结果分析
+   - 讨论与结论
+
+3. **[技术文档](TECHNICAL_DOCUMENTATION.md)**  
+   技术实现文档，包括：
+   - 系统概述与架构设计
+   - 核心组件详解
+   - 数据流与关键算法
+   - 实验方法与数据分析
+   - 性能优化与扩展性
+
+---
+
+## 项目结构
+
+```
+Infinite-Game-Research/
+├── README.md                      # 项目导航（本文件）
+├── LICENSE                        # MIT 许可证
+├── THEORETICAL_FRAMEWORK.md       # 理论框架文档
+├── RESEARCH_PAPER.md              # 研究论文（草稿）
+├── TECHNICAL_DOCUMENTATION.md     # 技术文档
+└── core_system/                   # 核心系统代码
+    ├── README.md                  # 代码说明
+    ├── main.py                    # 主模拟器
+    ├── random_player.py           # 随机体验玩家
+    ├── state_engine.py            # 状态引擎
+    ├── trading_rules.py           # 交易规则
+    ├── chaos_rules.py              # 混乱因子规则
+    └── metrics.py                 # 结构密度计算
+```
+
+---
+
+## 核心概念
+
+### 市场先生（Market Maker）
+
+- **单一市场，单一市场先生**：对于一个单一市场，仅存在一个抽象的"市场先生"
+- **分身机制**：市场先生可以存在多个分身（Player），代表它的参与强度
+- **盈亏抵消**：多个分身的盈利/亏损互相抵消，市场先生实际支付的只是交易费用
+- **费用购买趣味**：市场先生付出交易费用，购买的是"市场结构密度"（趣味性）
+
+### 市场结构密度（Market Structure Density）
+
+- **定义**：衡量市场状态轨迹在状态空间中的分布复杂程度，等同于"趣味性"
+- **计算**：通过聚类分析、转移矩阵熵等指标计算
+- **作用**：市场结构密度的强弱，决定市场先生参与强度的大小（分身数量）
+
+### 混乱因子（Chaos Factor）
+
+- **定义**：当参与强度高时，"混乱因子"会升高，惩罚交易成功概率
+- **作用**：防止系统过度拥挤，维持动态平衡，避免单一吸引子主导
+
+### 规则提炼（Rule Extraction）
+
+- **设计原则**：不去模拟单个交易所复杂的规则集，而是将金融市场最根本的共性规则提炼出来
+- **核心思想**：简单规则也会产生复杂结构
+- **意义**：通过提炼共性规则，我们能够观察到市场结构的本质特征，而不被具体交易所的复杂规则所干扰
+
+### 涌现（Emergence）
+
+宏观层面的复杂结构从微观层面的简单规则和交互中自发产生。
+
+---
+
+## 版本信息
+
+- **当前版本**: V5.0 (GameTheoryMarket)
+- **核心范式**: 规则驱动 + 随机试玩 + 状态格子行走
+
+---
+
+## 关键发现
+
+### V5.0 游戏理论市场
+
+- ✅ **结构涌现**：简单规则下能够涌现复杂结构（复杂度 0.958）
+- ✅ **体验反馈**：体验反馈机制有效维持系统活力
+- ✅ **参与度增长**：玩家数量持续增长（3 → 26，无上限模式）
+- ✅ **系统稳定性**：体验分数稳定（0.766），系统具有良好的扩展性和稳定性
+- ✅ **复杂度与参与度正相关**：复杂度与玩家数量正相关，说明复杂度反馈机制有效
+
+---
+
+## 快速开始
+
+### 阅读建议
+
+1. **初学者**：从 [理论框架](THEORETICAL_FRAMEWORK.md) 开始，了解核心概念
+2. **研究者**：阅读 [研究论文](RESEARCH_PAPER.md)，了解研究方法和发现
+3. **开发者**：查看 [技术文档](TECHNICAL_DOCUMENTATION.md)，了解实现细节
+
+### 相关资源
+
+- **开发仓库**: 包含完整的代码实现和实验脚本
+- **实验报告**: 开发仓库中的 `EXPERIMENTS/` 目录
+- **系统架构**: 开发仓库中的 `CONTRACTS/ARCHITECTURE.md`
+
+---
+
+## 贡献
+
+本项目是研究仓库，主要用于理论展示和数据分析。如需贡献代码或实验，请参考开发仓库。
+
+---
+
+## 许可证
+
+MIT License - 详见 [LICENSE](LICENSE) 文件
+
+---
+
+## 联系方式
+
+- **作者**: 刘刚
+- **项目**: Infinite Game
+- **日期**: 2025-01-15
+
+---
+
+**最后更新**: 2025-01-15
