@@ -1,0 +1,29 @@
+PDF 转换说明
+=============
+
+已生成 HTML 文件: InfiniteGame_V5_TechnicalNote.html
+
+方法 1: 使用浏览器打印为 PDF（推荐，立即可用）
+------------------------------------------------
+1. 双击打开 InfiniteGame_V5_TechnicalNote.html
+2. 在浏览器中按 Cmd+P (打印)
+3. 选择"另存为 PDF"
+4. 保存为 InfiniteGame_V5_TechnicalNote.pdf
+
+方法 2: 安装 LaTeX 后使用 Pandoc（最佳质量）
+------------------------------------------------
+1. 安装 BasicTeX:
+   brew install --cask basictex
+
+2. 安装后，运行:
+   pandoc InfiniteGame_V5_TechnicalNote.md -o InfiniteGame_V5_TechnicalNote.pdf \
+     --pdf-engine=xelatex \
+     -V geometry:margin=1in \
+     -V fontsize=11pt
+
+方法 3: 使用在线工具
+------------------------------------------------
+访问 https://www.markdowntopdf.com/
+上传 InfiniteGame_V5_TechnicalNote.md
+下载生成的 PDF
+

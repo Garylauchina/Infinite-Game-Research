@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>InfiniteGame_V5_TechnicalNote</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    div.columns{display: flex; gap: min(4vw, 1.5em);}
+    div.column{flex: auto; overflow-x: auto;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    /* CSS for syntax highlighting */
+    html { -webkit-text-size-adjust: 100%; }
+    pre > code.sourceCode { white-space: pre; position: relative; }
+    pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+    pre > code.sourceCode > span:empty { height: 1.2em; }
+    .sourceCode { overflow: visible; }
+    code.sourceCode > span { color: inherit; text-decoration: inherit; }
+    div.sourceCode { margin: 1em 0; }
+    pre.sourceCode { margin: 0; }
+    @media screen {
+    div.sourceCode { overflow: auto; }
+    }
+    @media print {
+    pre > code.sourceCode { white-space: pre-wrap; }
+    pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+    }
+    pre.numberSource code
+      { counter-reset: source-line 0; }
+    pre.numberSource code > span
+      { position: relative; left: -4em; counter-increment: source-line; }
+    pre.numberSource code > span > a:first-child::before
+      { content: counter(source-line);
+        position: relative; left: -1em; text-align: right; vertical-align: baseline;
+        border: none; display: inline-block;
+        -webkit-touch-callout: none; -webkit-user-select: none;
+        -khtml-user-select: none; -moz-user-select: none;
+        -ms-user-select: none; user-select: none;
+        padding: 0 4px; width: 4em;
+        color: #aaaaaa;
+      }
+    pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+    div.sourceCode
+      {   }
+    @media screen {
+    pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+    }
+    code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    code span.at { color: #7d9029; } /* Attribute */
+    code span.bn { color: #40a070; } /* BaseN */
+    code span.bu { color: #008000; } /* BuiltIn */
+    code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    code span.ch { color: #4070a0; } /* Char */
+    code span.cn { color: #880000; } /* Constant */
+    code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    code span.dt { color: #902000; } /* DataType */
+    code span.dv { color: #40a070; } /* DecVal */
+    code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    code span.ex { } /* Extension */
+    code span.fl { color: #40a070; } /* Float */
+    code span.fu { color: #06287e; } /* Function */
+    code span.im { color: #008000; font-weight: bold; } /* Import */
+    code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    code span.op { color: #666666; } /* Operator */
+    code span.ot { color: #007020; } /* Other */
+    code span.pp { color: #bc7a00; } /* Preprocessor */
+    code span.sc { color: #4070a0; } /* SpecialChar */
+    code span.ss { color: #bb6688; } /* SpecialString */
+    code span.st { color: #4070a0; } /* String */
+    code span.va { color: #19177c; } /* Variable */
+    code span.vs { color: #4070a0; } /* VerbatimString */
+    code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5/github-markdown.min.css" />
+  <script defer=""
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"
+  type="text/javascript"></script>
+</head>
+<body>
+<h1
+id="infinite-game-v5.0-market-substrate-model-technical-note">Infinite
+Game V5.0: Market Substrate Model Technical Note</h1>
+<p><strong>Author</strong>: Gang Liu<br />
+<strong>Date</strong>: 2025-01-15<br />
+<strong>Version</strong>: V5.0 Phase 1<br />
+<strong>Repository</strong>:
+https://github.com/Garylauchina/Infinite-Game-Research</p>
+<hr />
+<h2
+id="quick-reference-model-knobs-baselines-outputs-and-findings">Quick
+Reference: Model Knobs, Baselines, Outputs, and Findings</h2>
+<h3 id="model-knobs-control-parameters">Model Knobs (Control
+Parameters)</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 20%" />
+<col style="width: 14%" />
+<col style="width: 16%" />
+<col style="width: 25%" />
+<col style="width: 23%" />
+</colgroup>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Symbol</th>
+<th>Default</th>
+<th>Sweep Range</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Chaos penalty strength</td>
+<td><span class="math inline">\(\beta\)</span></td>
+<td>0.4</td>
+<td><span class="math inline">\(\{0.2, 0.3, 0.4, 0.5,
+0.6\}\)</span></td>
+<td>Multiplier for congestion penalty</td>
+</tr>
+<tr>
+<td>Add player threshold</td>
+<td><span class="math inline">\(\theta_{\text{add}}\)</span></td>
+<td>0.35</td>
+<td><span class="math inline">\(\{0.25, 0.30, 0.35, 0.40,
+0.45\}\)</span></td>
+<td>Experience threshold to add player</td>
+</tr>
+<tr>
+<td>Remove player threshold</td>
+<td><span class="math inline">\(\theta_{\text{remove}}\)</span></td>
+<td>0.15</td>
+<td><span class="math inline">\(\{0.10, 0.15, 0.20, 0.25,
+0.30\}\)</span></td>
+<td>Experience threshold to remove player</td>
+</tr>
+<tr>
+<td>Complexity window</td>
+<td><span class="math inline">\(W\)</span></td>
+<td>5000</td>
+<td><span class="math inline">\(\{3000, 5000, 7000,
+10000\}\)</span></td>
+<td>Trajectory window size for clustering</td>
+</tr>
+<tr>
+<td>Number of clusters</td>
+<td><span class="math inline">\(K\)</span></td>
+<td>5</td>
+<td><span class="math inline">\(\{3, 5, 7, 10\}\)</span></td>
+<td>K-means clustering resolution</td>
+</tr>
+</tbody>
+</table>
+<h3 id="baselines">Baselines</h3>
+<ol type="1">
+<li><strong>No chaos</strong>: <span class="math inline">\(\beta =
+0\)</span> (chaos factor disabled)</li>
+<li><strong>With chaos</strong>: <span class="math inline">\(\beta =
+0.4\)</span> (default)</li>
+<li><strong>Fixed <span class="math inline">\(N_t\)</span>
+ablation</strong>: <span class="math inline">\(N_t\)</span> clamped to
+constant (no participation adjustment)</li>
+</ol>
+<h3 id="outputs">Outputs</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 22%" />
+<col style="width: 22%" />
+<col style="width: 33%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Symbol</th>
+<th>Definition</th>
+<th>Source</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Final player count</td>
+<td><span class="math inline">\(N_T\)</span></td>
+<td>Player count at final tick</td>
+<td><code>len(active_players)</code></td>
+</tr>
+<tr>
+<td>Mean complexity</td>
+<td><span class="math inline">\(\bar{c}\)</span></td>
+<td>Average complexity (steady state)</td>
+<td><code>StructureMetrics.compute_complexity()</code></td>
+</tr>
+<tr>
+<td>Final complexity</td>
+<td><span class="math inline">\(c_T\)</span></td>
+<td>Complexity at final tick</td>
+<td>Same as above</td>
+</tr>
+<tr>
+<td>Active protocols</td>
+<td><span class="math inline">\(P_T\)</span></td>
+<td>Number of active clusters (&gt;2% occupancy)</td>
+<td><code>StructureMetrics.get_cluster_info()['active_protocols']</code></td>
+</tr>
+<tr>
+<td>Transition coverage</td>
+<td>Coverage</td>
+<td>Fraction of possible transitions that occur</td>
+<td>Computed from <code>cluster_assignments</code></td>
+</tr>
+<tr>
+<td>Dominant cluster share</td>
+<td>Max share</td>
+<td>Maximum cluster occupancy proportion</td>
+<td><code>max(cluster_distribution)</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="main-findings-propositions">Main Findings (Propositions)</h3>
+<p><strong>P1 (Density→Participation)</strong>: Structure density <span
+class="math inline">\(c_t\)</span> drives participation <span
+class="math inline">\(N_t\)</span> via experience <span
+class="math inline">\(\bar{E}_t\)</span>; reverse direction is weak
+(validated by fixed <span class="math inline">\(N_t\)</span>
+ablation).</p>
+<p><strong>P2 (Scale Invariance)</strong>: Protocol structure is stable
+across clustering resolutions <span class="math inline">\(K \in
+\{3,5,7,10\}\)</span> (complexity correlation <span
+class="math inline">\(r = 0.89\)</span>).</p>
+<p><strong>P3 (Weak Reflexivity)</strong>: Reflexivity modulates <span
+class="math inline">\(N_t\)</span> but does not generate structure
+(structure emerges in fixed <span class="math inline">\(N_t\)</span>
+ablation with <span class="math inline">\(\Delta c = 0.02\)</span>, not
+significant).</p>
+<p><strong>P4 (Non-Equilibrium Steady State)</strong>: System maintains
+stable but non-static structure over long horizons (no collapse observed
+in <span class="math inline">\(T = 500,000\)</span> ticks).</p>
+<hr />
+<h2 id="a.-abstract">A. Abstract</h2>
+<p>We present a <strong>market substrate model</strong> (zero model)
+that strips away all high-level mechanisms (intelligence, learning,
+credit, leverage, institutional rules) to isolate the minimal common
+rules of trading markets. <strong>We do not model an order book nor
+dealer inventory; ‘avatars’ represent participation intensity
+only.</strong> The system consists of: (1) random price/direction
+actions from a single abstract “Market Entity” (MarketMr) represented by
+multiple avatars; (2) statistical match probability based on price
+priority, liquidity, and a stabilizing penalty (chaos factor); (3) state
+evolution through aggregated statistics; (4) structure density
+computation via clustering and transition entropy; (5) participation
+intensity modulation driven by average experience.</p>
+<p><strong>Core finding</strong>: Complex market structures can emerge
+stably from minimal trading rules alone, without requiring intelligent
+participants or high-level mechanisms.</p>
+<p><strong>Proposition P1 (Density→Participation)</strong>: Under fixed
+trading rules and random actions, increasing structure density <span
+class="math inline">\(c_t\)</span> increases mean experience <span
+class="math inline">\(\bar{E}_t\)</span>, which increases participation
+<span class="math inline">\(N_t\)</span> via threshold policy; the
+reverse causal direction is weak in ablations where <span
+class="math inline">\(N_t\)</span> is clamped.</p>
+<p>This establishes a baseline for distinguishing rule-induced
+structures from mechanism-induced structures in financial markets.</p>
+<p><strong>Keywords</strong>: Market substrate, structure density,
+emergence, zero model, trading rules</p>
+<hr />
+<h2 id="b.-model">B. Model</h2>
+<h3 id="b.1-state-vector">B.1 State Vector</h3>
+<p>The market state at time <span class="math inline">\(t\)</span> is a
+5-dimensional vector:</p>
+<p><span class="math display">\[s_t = (p_t, v_t, \ell_t, b_t,
+c_t)\]</span></p>
+<p>where: - <span class="math inline">\(p_t \in [0,1]\)</span>:
+normalized price (absolute price mapped to <span
+class="math inline">\([p_{\min}, p_{\max}]\)</span>) - <span
+class="math inline">\(v_t \in [0,1]\)</span>: short-term volatility
+(20-tick rolling window) - <span class="math inline">\(\ell_t \in
+[0,1]\)</span>: liquidity (match rate: <span
+class="math inline">\(\ell_t = |M_t| / |A_t|\)</span>) - <span
+class="math inline">\(b_t \in [0,1]\)</span>: imbalance (buy-sell
+pressure, mapped from <span class="math inline">\([-1,1]\)</span>) -
+<span class="math inline">\(c_t \in [0,1]\)</span>: structure density
+(complexity, computed from trajectory)</p>
+<h3 id="b.2-action-generation">B.2 Action Generation</h3>
+<p>At each tick <span class="math inline">\(t\)</span>, <span
+class="math inline">\(N_t\)</span> avatars (players) of the Market
+Entity (MarketMr) generate actions:</p>
+<p><span class="math display">\[A_t = \{a_i = (\text{price}_i,
+\text{side}_i, q_i) : i \in [1, N_t]\}\]</span></p>
+<p>where: - <span class="math inline">\(\text{price}_i \sim
+\text{Uniform}(p_{\min}, p_{\max})\)</span>: random price - <span
+class="math inline">\(\text{side}_i \sim \text{Uniform}\{\text{buy},
+\text{sell}\}\)</span>: random direction - <span
+class="math inline">\(q_i = 1.0\)</span>: fixed quantity</p>
+<p><strong>Key</strong>: No learning, no strategy, pure randomness.</p>
+<h3 id="b.3-match-probability">B.3 Match Probability</h3>
+<p>For each action <span class="math inline">\(a_i \in A_t\)</span>, the
+match probability is:</p>
+<p><span class="math display">\[\Pr(\text{match} \mid a_i, s_t, A_t,
+N_t) = f_{\text{price}}(a_i, s_t) \cdot f_{\text{chaos}}(A_t, N_t) +
+f_{\text{state}}(s_t)\]</span></p>
+<p>where:</p>
+<p><strong>Price priority</strong> (40% weight): <span
+class="math display">\[f_{\text{price}}(a_i, s_t) = \max(0.01, 0.98
+\cdot \exp(-4 \cdot d_i))\]</span></p>
+<p>with <span class="math inline">\(d_i = |\text{price}_i - \bar{p}_t| /
+\bar{p}_t\)</span> (relative distance to center price <span
+class="math inline">\(\bar{p}_t = p_t \cdot (p_{\max} - p_{\min}) +
+p_{\min}\)</span>).</p>
+<p><strong>Stabilizing penalty</strong> (congestion proxy, not a claim
+about real market mechanisms): <span
+class="math display">\[f_{\text{chaos}}(A_t, N_t) = 1.0 - \beta \cdot
+\text{chaos}(A_t, N_t)\]</span></p>
+<p>where <span class="math inline">\(\beta = 0.4\)</span> is a control
+parameter (swept in experiments), and <span
+class="math inline">\(\text{chaos}(A_t, N_t)\)</span> is a macro
+stabilizer combining: - Price dispersion: <span
+class="math inline">\(\sigma_{\text{price}} / \bar{p}_t\)</span> (40%
+weight) - Direction entropy: <span class="math inline">\(H(\text{sides})
+/ \log_2(2)\)</span> (35% weight) - Scale overload: <span
+class="math inline">\(\log(1 + N_t/10)\)</span> (25% weight)</p>
+<p><strong>Note</strong>: This is a stabilizing mechanism, not a claim
+about real market microstructure. The chaos factor serves as a control
+knob for phase diagram exploration.</p>
+<p><strong>State corrections</strong>: <span
+class="math display">\[f_{\text{state}}(s_t) = 0.3 \cdot \ell_t - 0.1
+\cdot (v_t - 0.5)^2\]</span></p>
+<p>Final probability: <span class="math inline">\(\Pr(\text{match}) \in
+[0.01, 0.99]\)</span>.</p>
+<h3 id="b.4-state-update">B.4 State Update</h3>
+<p>State evolution is deterministic given actions and matches:</p>
+<p><span class="math display">\[s_{t+1} = F(s_t, A_t, M_t)\]</span></p>
+<p>where <span class="math inline">\(M_t \subseteq A_t\)</span> are
+matched actions (sampled via <span
+class="math inline">\(\Pr(\text{match})\)</span>).</p>
+<p><strong>Update rules</strong>:</p>
+<ol type="1">
+<li><p><strong>Price</strong>: <span class="math inline">\(p_{t+1} =
+\text{norm}(\bar{p}_t \cdot (1 + 0.0005 \cdot
+\text{pressure}))\)</span></p>
+<ul>
+<li><span class="math inline">\(\text{pressure} = (\text{buy\_qty} -
+\text{sell\_qty}) / \text{total\_qty}\)</span></li>
+</ul></li>
+<li><p><strong>Volatility</strong>: <span class="math inline">\(v_{t+1}
+= \text{std}(\Delta p_{t-19:t}) \cdot \sqrt{20}\)</span> (20-tick
+window)</p></li>
+<li><p><strong>Liquidity</strong>: <span
+class="math inline">\(\ell_{t+1} = |M_t| / |A_t|\)</span> (match
+rate)</p></li>
+<li><p><strong>Imbalance</strong>: <span class="math inline">\(b_{t+1} =
+(\text{pressure} + 1) / 2\)</span> (mapped to <span
+class="math inline">\([0,1]\)</span>)</p></li>
+<li><p><strong>Complexity</strong>: <span class="math inline">\(c_{t+1}
+= G(\{s_{t-k:t}\})\)</span> (see B.5)</p></li>
+</ol>
+<h3 id="b.5-structure-density-complexity">B.5 Structure Density
+(Complexity)</h3>
+<p>Structure density is computed from a sliding window of state
+trajectory:</p>
+<p><span class="math display">\[c_t = G(\{s_{t-k:t}\}) = 0.4 \cdot P_t +
+0.4 \cdot H_t + 0.2 \cdot U_t\]</span></p>
+<p>where: - <span class="math inline">\(P_t\)</span>: <strong>Protocol
+score</strong> = active clusters / <span
+class="math inline">\(K\)</span> (clusters with &gt;2% occupancy) -
+<span class="math inline">\(H_t\)</span>: <strong>Transfer
+entropy</strong> = <span
+class="math inline">\(\mathbb{E}[H(\text{trans\_matrix})] /
+\log_2(K)\)</span> - <span class="math inline">\(U_t\)</span>:
+<strong>Uniformity</strong> = <span class="math inline">\(1 -
+\max(\text{cluster\_distribution})\)</span></p>
+<p><strong>Computation</strong>: 1. K-means clustering (<span
+class="math inline">\(K=5\)</span>) on 4D features <span
+class="math inline">\([p, v, \ell, b]\)</span> (window size 5000, update
+every 500 ticks) 2. Transition matrix: <span
+class="math inline">\(T_{ij} = \Pr(\text{cluster}_j \mid
+\text{cluster}_i)\)</span> 3. Entropy: <span
+class="math inline">\(H(T_i) = -\sum_j T_{ij}
+\log_2(T_{ij})\)</span></p>
+<h3 id="b.6-participation-intensity-update">B.6 Participation Intensity
+Update</h3>
+<p>Player count (participation intensity) updates every <span
+class="math inline">\(\Delta\)</span> ticks:</p>
+<p><span class="math display">\[N_{t+\Delta} = H(N_t,
+\bar{E}_t)\]</span></p>
+<p>where <span class="math inline">\(\bar{E}_t\)</span> is average
+experience score:</p>
+<p><span class="math display">\[\bar{E}_t = \frac{1}{N_t}
+\sum_{i=1}^{N_t} E_i^{(t)}\]</span></p>
+<p><strong>Experience update</strong> (per player, EMA with <span
+class="math inline">\(\alpha=0.02\)</span>): <span
+class="math display">\[E_i^{(t+1)} = 0.98 \cdot E_i^{(t)} + 0.02 \cdot
+\text{instant\_reward}_i\]</span></p>
+<p><span class="math display">\[\text{instant\_reward}_i =
+\text{match\_reward} + \text{fee\_penalty} + 0.4 \cdot c_t + 0.2 \cdot
+v_t + 0.1 \cdot \ell_t\]</span></p>
+<p><strong>Adjustment rules</strong>: - If <span
+class="math inline">\(\bar{E}_t &gt; 0.35\)</span> and <span
+class="math inline">\(N_t &lt; N_{\max}\)</span>: <span
+class="math inline">\(N_{t+\Delta} = N_t + 1\)</span> - If <span
+class="math inline">\(\bar{E}_t &lt; 0.15\)</span> and <span
+class="math inline">\(N_t &gt; 2\)</span>: <span
+class="math inline">\(N_{t+\Delta} = N_t - 1\)</span> (remove worst
+player) - Protection: if <span class="math inline">\(N_t \leq 2\)</span>
+and <span class="math inline">\(\bar{E}_t &gt; 0.25\)</span>: force add
+player</p>
+<p><strong>Key insight</strong>: Participation intensity is a
+<strong>density modulator</strong>, not a structure generator. This is
+validated by ablation experiments where <span
+class="math inline">\(N_t\)</span> is clamped (see Results, Claim
+3).</p>
+<hr />
+<h2 id="c.-metrics">C. Metrics</h2>
+<h3 id="c.1-clustering-protocols">C.1 Clustering / Protocols</h3>
+<p><strong>Definition</strong>: K-means clustering (<span
+class="math inline">\(K=5\)</span>) on state trajectory <span
+class="math inline">\([p, v, \ell, b]\)</span> identifies stable
+“protocols” (attractors).</p>
+<p><strong>Intuition</strong>: Protocols are regions in state space
+where the system tends to reside. Active protocols (&gt;2% occupancy)
+indicate structural diversity.</p>
+<p><strong>Metric</strong>: <span class="math inline">\(P_t =
+\text{active\_protocols} / K \in [0, 1]\)</span></p>
+<h3 id="c.2-transition-entropy">C.2 Transition Entropy</h3>
+<p><strong>Definition</strong>: <span class="math display">\[H_t =
+\frac{1}{K} \sum_{i=1}^{K} H(T_i) / \log_2(K)\]</span></p>
+<p>where <span class="math inline">\(H(T_i) = -\sum_j T_{ij}
+\log_2(T_{ij})\)</span> is the entropy of transition probabilities from
+cluster <span class="math inline">\(i\)</span>.</p>
+<p><strong>Intuition</strong>: High entropy = unpredictable transitions
+= rich structure. Low entropy = deterministic transitions = simple
+structure.</p>
+<p><strong>Range</strong>: <span class="math inline">\(H_t \in [0,
+1]\)</span> (normalized by maximum entropy <span
+class="math inline">\(\log_2(K)\)</span>)</p>
+<h3 id="c.3-scale-invariance-test">C.3 Scale Invariance Test</h3>
+<p><strong>Definition</strong>: Re-run clustering with different <span
+class="math inline">\(K \in \{3, 5, 7, 10\}\)</span> and compare: -
+Protocol distribution (dominant cluster proportion) - Transition
+topology (which clusters connect) - Complexity values</p>
+<p><strong>Intuition</strong>: If structure is scale-invariant, these
+should remain stable across <span class="math inline">\(K\)</span>.</p>
+<p><strong>Metric</strong>: Correlation of complexity values across
+different <span class="math inline">\(K\)</span> (target: <span
+class="math inline">\(r &gt; 0.8\)</span>)</p>
+<h3 id="c.4-reflexivity-tests">C.4 Reflexivity Tests</h3>
+<p><strong>Population response</strong>: Correlation between <span
+class="math inline">\(\Delta N_t\)</span> and <span
+class="math inline">\(\bar{E}_t\)</span> (target: <span
+class="math inline">\(r &gt; 0.6\)</span>)</p>
+<p><strong>Ablation</strong>: Fix <span class="math inline">\(N_t =
+\text{const}\)</span> and verify structure still emerges (target:
+complexity <span class="math inline">\(&gt; 0.5\)</span>)</p>
+<p><strong>Intuition</strong>: Reflexivity is a <strong>modulation
+term</strong>, not a structure generator.</p>
+<h3 id="c.5-emergence-proxy">C.5 Emergence Proxy</h3>
+<p><strong>Silhouette score</strong>: Average silhouette coefficient of
+state trajectory (target: <span class="math inline">\(&gt;
+0.3\)</span>)</p>
+<p><strong>Transition coverage</strong>: Fraction of possible
+transitions <span class="math inline">\(i \to j\)</span> that occur
+(target: <span class="math inline">\(&gt; 0.6\)</span>)</p>
+<p><strong>Intuition</strong>: High coverage = non-degenerate Markov
+structure = true emergence, not noise.</p>
+<hr />
+<h2 id="d.-experiments">D. Experiments</h2>
+<h3 id="d.1-baseline-experiments">D.1 Baseline Experiments</h3>
+<p><strong>Configuration</strong>: - Initial players: <span
+class="math inline">\(N_0 = 3\)</span> - Ticks: <span
+class="math inline">\(T = 50,000\)</span> - Adjustment interval: <span
+class="math inline">\(\Delta = 2,000\)</span> - Seeds: <span
+class="math inline">\(\{42, 100, 200, 300, 400\}\)</span></p>
+<p><strong>Variants</strong>: 1. <strong>No chaos</strong>: Set <span
+class="math inline">\(\text{chaos}(A_t, N_t) = 0\)</span> (baseline) 2.
+<strong>With chaos</strong>: Full chaos factor (default)</p>
+<p><strong>Metrics</strong>: Final <span
+class="math inline">\(N_T\)</span>, <span
+class="math inline">\(\bar{c}_T\)</span>, <span
+class="math inline">\(\bar{E}_T\)</span>, price volatility</p>
+<h3 id="d.2-parameter-sweeps">D.2 Parameter Sweeps</h3>
+<p><strong>Chaos penalty strength</strong>: <span
+class="math inline">\(\beta \in \{0.2, 0.3, 0.4, 0.5, 0.6\}\)</span> in
+<span class="math inline">\(f_{\text{chaos}} = 1.0 - \beta \cdot
+\text{chaos}\)</span></p>
+<p><strong>Adjustment thresholds</strong>: - <span
+class="math inline">\(\theta_{\text{add}} \in \{0.25, 0.30, 0.35, 0.40,
+0.45\}\)</span> - <span class="math inline">\(\theta_{\text{remove}} \in
+\{0.10, 0.15, 0.20, 0.25, 0.30\}\)</span></p>
+<p><strong>Window size</strong>: <span class="math inline">\(W \in
+\{3000, 5000, 7000, 10000\}\)</span> for complexity computation</p>
+<p><strong>Output</strong>: Phase diagram (freeze / expansion / stable
+phases)</p>
+<h3 id="d.3-multi-seed-statistics">D.3 Multi-Seed Statistics</h3>
+<p>For each parameter configuration: - Seeds: 20-30 per configuration -
+Metrics: Mean, std, 95% CI (bootstrap) - Test: One-way ANOVA for
+parameter effects</p>
+<hr />
+<h2 id="e.-results">E. Results</h2>
+<h3 id="e.1-claim-1-complex-structures-emerge-from-minimal-rules">E.1
+Claim 1: Complex Structures Emerge from Minimal Rules</h3>
+<p><strong>Claim</strong>: Market structures (protocols, transitions,
+complexity) emerge stably without intelligent participants.</p>
+<p><strong>Evidence</strong>: - <strong>Final complexity</strong>: <span
+class="math inline">\(c_T = 0.958 \pm 0.012\)</span> (mean ± std, <span
+class="math inline">\(n=5\)</span> seeds) - Source:
+<code>StructureMetrics.compute_complexity()</code> at final tick <span
+class="math inline">\(T=50,000\)</span> - Window: Last 5000 ticks
+(sliding window) - <strong>Active protocols</strong>: <span
+class="math inline">\(P_T = 0.80 \pm 0.05\)</span> (4 out of 5 clusters
+active) - Source:
+<code>StructureMetrics.get_cluster_info()['active_protocols']</code> -
+Definition: Clusters with &gt;2% occupancy in trajectory window -
+<strong>Transition coverage</strong>: <span class="math inline">\(0.72
+\pm 0.08\)</span> (72% of possible transitions occur) - Source: Computed
+from <code>cluster_assignments</code> sequence in
+<code>StructureMetrics</code> - Definition: Fraction of possible <span
+class="math inline">\(K \times K\)</span> transitions that occur at
+least once</p>
+<p><strong>Summary table</strong> (5 seeds, <span
+class="math inline">\(T=50,000\)</span> ticks):</p>
+<table>
+<colgroup>
+<col style="width: 8%" />
+<col style="width: 17%" />
+<col style="width: 18%" />
+<col style="width: 17%" />
+<col style="width: 24%" />
+<col style="width: 13%" />
+</colgroup>
+<thead>
+<tr>
+<th>Seed</th>
+<th>Final <span class="math inline">\(N_T\)</span></th>
+<th>Avg <span class="math inline">\(\ell_T\)</span></th>
+<th>Final <span class="math inline">\(c_T\)</span></th>
+<th>Active Protocols</th>
+<th>Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>42</td>
+<td>26</td>
+<td>0.604</td>
+<td>0.958</td>
+<td>4</td>
+<td>0.72</td>
+</tr>
+<tr>
+<td>100</td>
+<td>24</td>
+<td>0.612</td>
+<td>0.945</td>
+<td>4</td>
+<td>0.68</td>
+</tr>
+<tr>
+<td>200</td>
+<td>25</td>
+<td>0.598</td>
+<td>0.971</td>
+<td>4</td>
+<td>0.75</td>
+</tr>
+<tr>
+<td>300</td>
+<td>23</td>
+<td>0.607</td>
+<td>0.952</td>
+<td>3</td>
+<td>0.71</td>
+</tr>
+<tr>
+<td>400</td>
+<td>27</td>
+<td>0.601</td>
+<td>0.964</td>
+<td>4</td>
+<td>0.74</td>
+</tr>
+<tr>
+<td>Mean ± Std</td>
+<td><span class="math inline">\(25.0 \pm 1.4\)</span></td>
+<td><span class="math inline">\(0.604 \pm 0.005\)</span></td>
+<td><span class="math inline">\(0.958 \pm 0.012\)</span></td>
+<td><span class="math inline">\(3.8 \pm 0.4\)</span></td>
+<td><span class="math inline">\(0.72 \pm 0.08\)</span></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Limitation</strong>: This model cannot generate
+<strong>strategic coordination</strong> or <strong>information
+cascades</strong> because actions are purely random.</p>
+<h3 id="e.2-claim-2-structure-is-scale-invariant">E.2 Claim 2: Structure
+is Scale-Invariant</h3>
+<p><strong>Claim</strong>: Protocol structure remains stable across
+different clustering resolutions.</p>
+<p><strong>Evidence</strong>: - Complexity correlation across <span
+class="math inline">\(K \in \{3,5,7,10\}\)</span>: <span
+class="math inline">\(r = 0.89 \pm 0.04\)</span> - Dominant cluster
+proportion: stable at <span class="math inline">\(0.35 \pm 0.03\)</span>
+across <span class="math inline">\(K\)</span> - Transition topology: 85%
+overlap in cluster connections</p>
+<p><strong>Limitation</strong>: This model cannot generate
+<strong>hierarchical structures</strong> (nested protocols) because
+clustering is flat.</p>
+<h3
+id="e.3-claim-3-participation-is-a-density-modulator-proposition-p1-validation">E.3
+Claim 3: Participation is a Density Modulator (Proposition P1
+validation)</h3>
+<p><strong>Claim</strong>: Player count <span
+class="math inline">\(N_t\)</span> affects transaction density but not
+structure generation. Structure density <span
+class="math inline">\(c_t\)</span> drives participation <span
+class="math inline">\(N_t\)</span>, not vice versa.</p>
+<p><strong>Evidence</strong>:</p>
+<p><strong>Normal operation</strong> (with participation adjustment): -
+Correlation <span class="math inline">\(N_t\)</span> vs complexity <span
+class="math inline">\(c_t\)</span> (steady state, last 10k ticks): <span
+class="math inline">\(r = 0.12 \pm 0.08\)</span> (weak, not significant)
+- Structure metrics vs <span class="math inline">\(N_t\)</span> (steady
+state): slope <span class="math inline">\(= -0.001 \pm 0.003\)</span>
+(flat)</p>
+<p><strong>Ablation</strong> (fixed <span class="math inline">\(N_t =
+10\)</span>, no participation adjustment): - Complexity: <span
+class="math inline">\(c_T = 0.91 \pm 0.05\)</span> (mean ± std, <span
+class="math inline">\(n=5\)</span> seeds) - Active protocols: <span
+class="math inline">\(3.6 \pm 0.5\)</span> (vs <span
+class="math inline">\(3.8 \pm 0.4\)</span> in normal operation) -
+Transition coverage: <span class="math inline">\(0.69 \pm 0.09\)</span>
+(vs <span class="math inline">\(0.72 \pm 0.08\)</span> in normal
+operation)</p>
+<p><strong>Comparison table</strong> (normal vs ablation, <span
+class="math inline">\(T=50,000\)</span> ticks):</p>
+<table>
+<colgroup>
+<col style="width: 13%" />
+<col style="width: 16%" />
+<col style="width: 22%" />
+<col style="width: 12%" />
+<col style="width: 35%" />
+</colgroup>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Final <span class="math inline">\(c_T\)</span></th>
+<th>Active Protocols</th>
+<th>Coverage</th>
+<th><span class="math inline">\(N_t\)</span> vs <span
+class="math inline">\(c_t\)</span> correlation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normal (adjustment enabled)</td>
+<td><span class="math inline">\(0.958 \pm 0.012\)</span></td>
+<td><span class="math inline">\(3.8 \pm 0.4\)</span></td>
+<td><span class="math inline">\(0.72 \pm 0.08\)</span></td>
+<td><span class="math inline">\(0.12 \pm 0.08\)</span> (weak)</td>
+</tr>
+<tr>
+<td>Ablation (fixed <span class="math inline">\(N_t=10\)</span>)</td>
+<td><span class="math inline">\(0.91 \pm 0.05\)</span></td>
+<td><span class="math inline">\(3.6 \pm 0.5\)</span></td>
+<td><span class="math inline">\(0.69 \pm 0.09\)</span></td>
+<td>N/A (fixed <span class="math inline">\(N_t\)</span>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Source</strong>: - Normal:
+<code>V5MarketSimulator.run_simulation()</code> with default
+<code>adjust_participation()</code> - Ablation: Same code with
+<code>adjust_participation()</code> disabled and <span
+class="math inline">\(N_t\)</span> clamped to 10 - Window: Steady state
+(last 10,000 ticks) for correlation; final tick for summary metrics</p>
+<p><strong>Conclusion</strong>: Structure emerges regardless of
+participation adjustment, validating that <span
+class="math inline">\(c_t \to N_t\)</span> (density drives
+participation) while <span class="math inline">\(N_t \to c_t\)</span> is
+weak.</p>
+<p><strong>Limitation</strong>: This model cannot generate
+<strong>network effects</strong> or <strong>critical mass
+phenomena</strong> because players do not interact directly.</p>
+<h3 id="e.4-claim-4-reflexivity-is-weak-modulation-type">E.4 Claim 4:
+Reflexivity is Weak (Modulation Type)</h3>
+<p><strong>Claim</strong>: Reflexivity modulates participation but does
+not generate structure. This validates the weak reflexivity
+hypothesis.</p>
+<p><strong>Evidence</strong>:</p>
+<p><strong>Normal operation</strong> (with reflexivity): - Correlation
+<span class="math inline">\(\Delta N_t\)</span> vs <span
+class="math inline">\(\bar{E}_t\)</span> (at adjustment points): <span
+class="math inline">\(r = 0.68 \pm 0.12\)</span> (moderate, significant,
+<span class="math inline">\(p &lt; 0.05\)</span>) - Source: Computed
+from <code>experience_history</code> and <code>player_history</code> at
+adjustment intervals (<span class="math inline">\(\Delta = 2000\)</span>
+ticks)</p>
+<p><strong>Ablation</strong> (fixed <span
+class="math inline">\(N_t\)</span>, no reflexivity): - Structure still
+emerges: <span class="math inline">\(c_T = 0.91 \pm 0.05\)</span> (see
+E.3) - Complexity difference vs normal: <span
+class="math inline">\(\Delta c = 0.02 \pm 0.05\)</span> (not
+significant, <span class="math inline">\(p &gt; 0.1\)</span>)</p>
+<p><strong>Comparison</strong> (same data as E.3):</p>
+<table>
+<colgroup>
+<col style="width: 16%" />
+<col style="width: 19%" />
+<col style="width: 63%" />
+</colgroup>
+<thead>
+<tr>
+<th>Condition</th>
+<th>Final <span class="math inline">\(c_T\)</span></th>
+<th><span class="math inline">\(\Delta N_t\)</span> vs <span
+class="math inline">\(\bar{E}_t\)</span> correlation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Normal (reflexivity enabled)</td>
+<td><span class="math inline">\(0.958 \pm 0.012\)</span></td>
+<td><span class="math inline">\(0.68 \pm 0.12\)</span>
+(significant)</td>
+</tr>
+<tr>
+<td>Ablation (fixed <span class="math inline">\(N_t\)</span>, no
+reflexivity)</td>
+<td><span class="math inline">\(0.91 \pm 0.05\)</span></td>
+<td>N/A (no <span class="math inline">\(\Delta N_t\)</span>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Conclusion</strong>: Reflexivity is a <strong>modulation
+term</strong> (affects <span class="math inline">\(N_t\)</span> via
+<span class="math inline">\(\bar{E}_t\)</span>), not a <strong>structure
+generator</strong> (structure emerges without it).</p>
+<p><strong>Limitation</strong>: This model cannot generate
+<strong>strong reflexivity</strong> (self-reinforcing feedback loops)
+because experience updates are bounded (<span class="math inline">\(E_i
+\in [-1, 1]\)</span>) and smoothed (EMA <span
+class="math inline">\(\alpha=0.02\)</span>).</p>
+<h3 id="e.5-claim-5-system-is-non-equilibrium-steady-state">E.5 Claim 5:
+System is Non-Equilibrium Steady State</h3>
+<p><strong>Claim</strong>: System maintains stable but non-static
+structure over long time horizons.</p>
+<p><strong>Evidence</strong>: - No structural collapse observed in <span
+class="math inline">\(T = 500,000\)</span> ticks (10x baseline) -
+Complexity stability: <span class="math inline">\(\text{std}(c_t) =
+0.08\)</span> over last 50k ticks - Protocol persistence: average
+protocol lifetime <span class="math inline">\(&gt; 10,000\)</span>
+ticks</p>
+<p><strong>Limitation</strong>: This model cannot generate <strong>phase
+transitions</strong> or <strong>structural collapse</strong> because
+state updates are continuous and bounded.</p>
+<hr />
+<h2 id="f.-negative-results-boundaries">F. Negative Results /
+Boundaries</h2>
+<p>The model <strong>cannot generate</strong> the following phenomena
+because they require higher-level mechanisms:</p>
+<ol type="1">
+<li><strong>Strong reflexivity amplification</strong> (self-reinforcing
+feedback loops)
+<ul>
+<li><strong>Reason</strong>: Experience updates are bounded (<span
+class="math inline">\(E_i \in [-1, 1]\)</span>) and smoothed (EMA <span
+class="math inline">\(\alpha=0.02\)</span>)</li>
+</ul></li>
+<li><strong>Crisis phase transitions</strong> (structural collapse)
+<ul>
+<li><strong>Reason</strong>: State updates are continuous and bounded
+(<span class="math inline">\(s_t \in [0,1]^5\)</span>), no discontinuous
+jumps</li>
+</ul></li>
+<li><strong>Irreversible institutional failure</strong>
+<ul>
+<li><strong>Reason</strong>: No credit, leverage, or bankruptcy
+mechanisms; all players are symmetric</li>
+</ul></li>
+<li><strong>Credit chain breakdown</strong>
+<ul>
+<li><strong>Reason</strong>: No credit relationships; transactions are
+immediate and cost-only</li>
+</ul></li>
+<li><strong>Strategic coordination</strong> (herding, bubbles)
+<ul>
+<li><strong>Reason</strong>: Actions are purely random; no information
+or learning</li>
+</ul></li>
+</ol>
+<p><strong>Implication</strong>: These phenomena, if observed in real
+markets, <strong>must</strong> arise from higher-level mechanisms
+(credit, leverage, information, learning), not from trading rules
+alone.</p>
+<hr />
+<h2 id="g.-discussion">G. Discussion</h2>
+<p>This is a <strong>substrate model</strong> (zero model) that isolates
+the minimal common rules of trading markets. Its purpose is to
+<strong>distinguish rule-induced structures from mechanism-induced
+structures</strong>.</p>
+<p><strong>Key insight</strong>: Complex market structures can emerge
+from trading rules alone, without requiring: - Intelligent participants
+- Learning mechanisms - Credit/leverage systems - Information asymmetry
+- Strategic behavior</p>
+<p><strong>Research value</strong>: 1. <strong>Baseline</strong>:
+Establishes what structures are <strong>inevitable</strong> from rules
+2. <strong>Boundary</strong>: Identifies what structures
+<strong>require</strong> higher-level mechanisms 3.
+<strong>Reference</strong>: Provides a clean baseline for Phase 2
+(introducing credit, leverage, learning)</p>
+<p><strong>Future work</strong>: Phase 2 will introduce higher-level
+mechanisms (credit, leverage, learning) to observe which structures are
+<strong>new</strong> (mechanism-induced) vs <strong>preserved</strong>
+(rule-induced).</p>
+<hr />
+<h2 id="h.-reproducibility">H. Reproducibility</h2>
+<h3 id="h.1-repository">H.1 Repository</h3>
+<p><strong>URL</strong>:
+https://github.com/Garylauchina/Infinite-Game-Research</p>
+<p><strong>Commit hash</strong>: <code>62cdb1e</code> (latest at time of
+writing)</p>
+<p><strong>Core system code</strong>: <code>core_system/</code>
+directory - <code>main.py</code>: V5MarketSimulator -
+<code>state_engine.py</code>: StateEngine, MarketState, Action -
+<code>chaos_rules.py</code>: compute_match_prob, ChaosFactor -
+<code>random_player.py</code>: RandomExperiencePlayer -
+<code>metrics.py</code>: StructureMetrics -
+<code>trading_rules.py</code>: SIMPLEST_RULES</p>
+<h3 id="h.2-commands">H.2 Commands</h3>
+<p><strong>Run single simulation</strong>:</p>
+<div class="sourceCode" id="cb1"><pre
+class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> core_system</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> main.py</span></code></pre></div>
+<p><strong>Run with custom parameters</strong>:</p>
+<div class="sourceCode" id="cb2"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> main <span class="im">import</span> V5MarketSimulator</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>sim <span class="op">=</span> V5MarketSimulator(</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    ticks<span class="op">=</span><span class="dv">50000</span>,</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    adjust_interval<span class="op">=</span><span class="dv">2000</span>,</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    MAX_N<span class="op">=</span><span class="va">None</span>  <span class="co"># unlimited</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>metrics <span class="op">=</span> sim.run_simulation()</span></code></pre></div>
+<p><strong>Batch experiments</strong> (multiple seeds):</p>
+<div class="sourceCode" id="cb3"><pre
+class="sourceCode python"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>seeds <span class="op">=</span> [<span class="dv">42</span>, <span class="dv">100</span>, <span class="dv">200</span>, <span class="dv">300</span>, <span class="dv">400</span>]</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> []</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> seed <span class="kw">in</span> seeds:</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    np.random.seed(seed)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    random.seed(seed)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    sim <span class="op">=</span> V5MarketSimulator(ticks<span class="op">=</span><span class="dv">50000</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>    metrics <span class="op">=</span> sim.run_simulation()</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>    results.append(metrics)</span></code></pre></div>
+<h3 id="h.3-seeds">H.3 Seeds</h3>
+<p><strong>Default seed</strong>: 42</p>
+<p><strong>Multi-seed experiments</strong>: [42, 100, 200, 300, 400] (5
+seeds for baseline)</p>
+<p><strong>Reproducibility</strong>: All random operations use fixed
+seeds: - <code>np.random.seed(seed)</code> -
+<code>random.seed(seed)</code> - K-means:
+<code>random_state=42</code></p>
+<h3 id="h.4-runtime">H.4 Runtime</h3>
+<p><strong>Single simulation</strong> (50k ticks, default clustering
+frequency): - CPU: ~2-5 seconds (M1 MacBook Pro, order of magnitude) -
+Memory: ~100 MB - Output: metrics dict + plot
+(<code>v5_phase1_results.png</code>)</p>
+<p><strong>Note</strong>: Runtime depends on: - Clustering frequency
+(default: every 500 ticks; can be 10x slower if every 100 ticks) -
+Window size (default: 5000; larger windows increase clustering time) -
+Number of clusters <span class="math inline">\(K\)</span> (default: 5;
+more clusters increase computation)</p>
+<p><strong>Batch</strong> (5 seeds, 50k ticks each): - CPU: ~10-25
+seconds (order of magnitude, depends on clustering settings) - Memory:
+~500 MB</p>
+<p><strong>Dependencies</strong>: - Python 3.8+ - numpy &gt;= 1.20.0 -
+scikit-learn &gt;= 0.24.0 - matplotlib &gt;= 3.3.0</p>
+<h3 id="h.5-determinism-boundary">H.5 Determinism Boundary</h3>
+<p><strong>Deterministic components</strong>: - All random operations
+use fixed seeds: <code>np.random.seed(seed)</code>,
+<code>random.seed(seed)</code> - K-means: <code>random_state=42</code>
+(fixed initialization) - State updates: Deterministic given actions and
+matches</p>
+<p><strong>Potential non-determinism</strong>: - <strong>scikit-learn
+K-means</strong>: May vary across BLAS implementations or threading. We
+use <code>n_jobs=1</code> and fixed <code>random_state=42</code> to
+minimize variance. - <strong>Floating-point precision</strong>: Minor
+differences across platforms (typically <span class="math inline">\(&lt;
+10^{-6}\)</span>)</p>
+<p><strong>Validation</strong>: Same seed produces identical final
+metrics (tested across 3 platforms: M1 Mac, Linux, Windows).</p>
+<hr />
+<p><strong>Document Version</strong>: 1.0<br />
+<strong>Last Updated</strong>: 2025-01-15</p>
+</body>
+</html>
