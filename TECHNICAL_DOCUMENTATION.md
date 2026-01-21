@@ -162,39 +162,53 @@ def compute_match_prob(price, s_t, all_actions, player_count,
 
 **功能**：纯随机报价的体验驱动 Player，作为市场先生的分身。
 
-**核心方法**：
+**核心方法**（实际实现）：
 ```python
 class RandomExperiencePlayer:
-    def __init__(self):
-        self.experience_score = 0.0  # [-1, 1] 滚动均值
-        self.total_matches = 0
-        self.total_attempts = 0
-        self.total_fees = 0.0
+    def __init__(self, player_id: int):
+        self.id = player_id
+        self.experience_score = 0.0  # 核心指标 [-2, 2]
+        self.action_history: List[Action] = []     # 最近行动记录
+        self.experience_history: List[float] = []  # 最近体验记录
         
-    def decide_action(self, s_t: Dict[str, float]) -> Dict[str, Any]:
-        """纯随机报价 - 真实的市场先生试玩行为"""
-        price_min = FIXED_RULES['price_min']
-        price_max = FIXED_RULES['price_max']
+    def decide_action(self, s_t: MarketState) -> Action:
+        """纯随机报价 - 市场先生试玩行为"""
+        price = np.random.uniform(SIMPLEST_RULES['price_min'], SIMPLEST_RULES['price_max'])
+        side = np.random.choice(['buy', 'sell'])
         
-        return {
-            'price': np.random.uniform(price_min, price_max),
-            'side': np.random.choice(['buy', 'sell']),
-            'qty': 1.0
-        }
+        action = Action(price=price, side=side, qty=1.0)
+        self.action_history.append(action)
+        if len(self.action_history) > 50:  # 保持最近50次
+            self.action_history.pop(0)
+            
+        return action
     
-    def update_experience(self, matched: bool, fee: float, s_t: Dict[str, float]) -> None:
-        """体验 = 成交快感 - 费用痛苦 + 结构奖励"""
-        instant_reward = (
-            (+1.0 if matched else -0.3) +      # 成交快感 / 未成交挫败
-            -10.0 * fee +                       # 费用痛苦（放大10倍）
-            +0.4 * s_t['complexity'] +          # 结构奖励（复杂度高 = 有趣）
-            +0.2 * s_t['volatility']            # 波动奖励（波动 = 刺激）
+    def update_experience(self, matched: bool, s_t: MarketState) -> float:
+        """体验 = 成交快感 - 费用痛苦 + 市场氛围奖励"""
+        if not self.action_history:
+            return 0.0
+            
+        action = self.action_history[-1]
+        fee = compute_fee(action, s_t, matched)
+        
+        # 体验分量设计
+        match_reward = +1.0 if matched else -0.3
+        # 费用惩罚：使用费率而非绝对金额
+        fee_rate = fee / (action.price * action.qty) if action.price * action.qty > 0 else 0.0
+        fee_penalty = -10.0 * fee_rate  # 费率惩罚（放大10倍）
+        structure_reward = +0.4 * s_t.complexity
+        volatility_reward = +0.2 * s_t.volatility
+        liquidity_reward = +0.1 * s_t.liquidity  # 额外奖励
+        
+        instant_experience = (
+            match_reward + fee_penalty + 
+            structure_reward + volatility_reward + liquidity_reward
         )
         
-        # EMA 平滑
+        # EMA 平滑（实际实现：0.98/0.02）
         self.experience_score = (
-            0.99 * self.experience_score + 
-            0.01 * instant_reward
+            0.98 * self.experience_score + 
+            0.02 * instant_experience
         )
         
         # 更新统计
@@ -218,55 +232,72 @@ class RandomExperiencePlayer:
 
 **功能**：维护市场状态向量，执行状态更新。
 
-**状态向量**：
+**状态向量**（实际实现，使用dataclass）：
 ```python
-s_t = {
-    'price_norm': 0.0,      # 价格标准化 [0, 1]
-    'volatility': 0.0,      # 短期波动率 [0, 1]
-    'liquidity': 0.0,      # 成交率 [0, 1]
-    'imbalance': 0.5,      # 买卖平衡 [-1, 1]，0.5表示平衡
-    'complexity': 0.0      # 结构密度 [0, 1]
-}
+@dataclass
+class MarketState:
+    """5维状态向量 [0,1]"""
+    price_norm: float     # 标准化价格
+    volatility: float     # 短期波动率
+    liquidity: float      # 成交容易度
+    imbalance: float      # 买卖倾斜 [0,1]→[-1,1]
+    complexity: float     # 结构密度
 ```
 
-**状态更新**：
+**状态更新**（实际实现）：
 ```python
-def update_state(s_t: Dict[str, float], actions: List, matches: List, trajectory: List) -> Dict[str, float]:
-    """根据 actions 和 matches 更新状态"""
+def update(self, s_t: MarketState, actions: List[Action], matches: List[Action]) -> MarketState:
+    """核心状态更新 - 聚合统计"""
+    if len(actions) == 0:
+        return s_t  # 无行动，状态不变
+        
+    # 1. 买卖压力
+    buy_qty = sum(a.qty for a in actions if a.side == 'buy')
+    sell_qty = sum(a.qty for a in actions if a.side == 'sell')
+    total_qty = buy_qty + sell_qty
+    pressure = (buy_qty - sell_qty) / (total_qty + 1e-6)
     
-    # 1. 价格压力（买卖不平衡）
-    buy_qty = sum(a['qty'] for _, a in actions if a['side'] == 'buy')
-    sell_qty = sum(a['qty'] for _, a in actions if a['side'] == 'sell')
-    pressure = (buy_qty - sell_qty) / (buy_qty + sell_qty + 1e-6)
+    # 2. 价格更新
+    price_abs = self.denorm_price(s_t.price_norm)
+    new_price_abs = price_abs * (1 + 0.0005 * pressure)
+    new_price_norm = self.norm_price(new_price_abs)
     
-    # 2. 成交价格（用于计算价格中心）
-    if matches:
-        match_prices = [a['price'] for _, a in matches]
-        avg_match_price = np.mean(match_prices)
-        price_min = FIXED_RULES['price_min']
-        price_max = FIXED_RULES['price_max']
-        price_norm = (avg_match_price - price_min) / (price_max - price_min)
+    # 3. 波动率 (20-tick 窗口)
+    self.price_history.append(new_price_norm)
+    if len(self.price_history) > 20:
+        self.price_history.pop(0)
+    if len(self.price_history) > 1:
+        returns = np.diff(self.price_history)
+        vol = np.std(returns) * np.sqrt(20)  # 年化近似
+        new_vol = np.clip(vol, 0, 1)
     else:
-        price_norm = s_t['price_norm']  # 无成交时保持
+        new_vol = 0.3  # 默认中等波动
+        
+    # 4. 流动性 = 成交率
+    new_liq = len(matches) / len(actions)
     
-    # 3. 更新各分量
-    new_s = {
-        'price_norm': np.clip(s_t['price_norm'] + 0.001 * pressure, 0, 1),
-        'volatility': compute_recent_volatility(trajectory[-20:]) if len(trajectory) >= 20 else 0.0,
-        'liquidity': len(matches) / max(1, len(actions)),
-        'imbalance': np.clip(pressure, -1, 1),
-        'complexity': compute_complexity(trajectory[-5000:]) if len(trajectory) >= 5000 else 0.0
-    }
+    # 5. 不平衡度
+    new_imbalance_raw = pressure  # [-1,1]
+    new_imbalance = (new_imbalance_raw + 1) / 2  # [0,1]
     
-    return new_s
+    # 6. 复杂度由StructureMetrics计算（不在StateEngine中）
+    new_complexity = s_t.complexity  # 保持原值，由主循环更新
+    
+    return MarketState(
+        price_norm=new_price_norm,
+        volatility=new_vol,
+        liquidity=new_liq,
+        imbalance=new_imbalance,
+        complexity=new_complexity
+    )
 ```
 
-**状态更新特点**：
-- **价格标准化**：受买卖压力影响，缓慢漂移
-- **波动率**：基于最近20个 tick 的价格标准差
-- **流动性**：直接计算成交率
-- **不平衡**：买卖压力，范围 [-1, 1]
-- **复杂度**：需要足够历史数据（5000 ticks）才能计算
+**状态更新特点**（实际实现）：
+- **价格标准化**：`new_price_abs = price_abs * (1 + 0.0005 * pressure)`，受买卖压力影响
+- **波动率**：基于最近20个 tick 的价格标准差，年化近似（`std(returns) * sqrt(20)`）
+- **流动性**：直接计算成交率（`len(matches) / len(actions)`）
+- **不平衡**：买卖压力归一化到 [0,1]（`(pressure + 1) / 2`）
+- **复杂度**：由StructureMetrics计算，每500 ticks更新一次（不在StateEngine中）
 
 ### 3.4 固定规则集（共性规则提炼，含混乱因子）
 
@@ -275,23 +306,20 @@ def update_state(s_t: Dict[str, float], actions: List, matches: List, trajectory
 - 而是将金融市场最根本的共性规则提炼出来
 - 简单规则也会产生复杂结构
 
-**核心规则**（提炼的共性规则）：
+**核心规则**（提炼的共性规则，实际实现）：
 ```python
-FIXED_RULES = {
-    # 价格边界
-    'price_min': 40000,
-    'price_max': 60000,
-    
-    # 手续费
-    'maker_fee': 0.0005,    # 0.05%
-    'taker_fee': 0.0010,    # 0.10%
-    
-    # 成交概率函数
-    'match_prob': compute_match_prob,
-    
-    # Maker/Taker 判断
-    'is_maker': lambda price, s_t: abs(price - get_center_price(s_t)) < 0.5
+SIMPLEST_RULES = {
+    'price_min': 40000.0,
+    'price_max': 60000.0,
+    'fixed_fee': 0.0005  # 0.05% 固定费率
 }
+
+# 手续费计算（实际实现）
+def compute_fee(action: Action, s_t: MarketState, matched: bool) -> float:
+    """最简费率：固定 0.05%，成交才收"""
+    if not matched:
+        return 0.0
+    return SIMPLEST_RULES['fixed_fee'] * action.price * action.qty
 ```
 
 **成交概率计算**（实际实现，来自 chaos_rules.py）：
@@ -341,7 +369,7 @@ def compute_complexity(self) -> float:
     """结构密度 = 协议数 + 转移熵 + 驻留均匀度"""
     if len(self.cluster_assignments) < 200:
         return 0.3  # 默认值
-    
+        
     clusters = np.array(self.cluster_assignments)
     
     # 1. 有效协议数 (活跃簇)
@@ -350,8 +378,22 @@ def compute_complexity(self) -> float:
     protocol_score = active_protocols / self.n_clusters
     
     # 2. 转移熵
-    trans_matrix = compute_transition_matrix(clusters)
-    trans_prob = normalize_transition_matrix(trans_matrix)
+    trans_count = defaultdict(int)
+    for i in range(len(clusters)-1):
+        trans_count[(clusters[i], clusters[i+1])] += 1
+        
+    trans_matrix = np.zeros((self.n_clusters, self.n_clusters))
+    for (i,j), cnt in trans_count.items():
+        if i < self.n_clusters and j < self.n_clusters:
+            trans_matrix[i,j] = cnt
+        
+    # 行归一化
+    row_sums = trans_matrix.sum(axis=1, keepdims=True)
+    trans_prob = np.divide(trans_matrix, row_sums, 
+                          out=np.zeros_like(trans_matrix), 
+                          where=row_sums!=0)
+    
+    # 熵 (忽略零行)
     entropy = -np.sum(trans_prob * np.log2(trans_prob + 1e-8), axis=1)
     entropy = entropy[row_sums.flatten() > 0]
     transfer_entropy = np.mean(entropy) / np.log2(self.n_clusters) if len(entropy) > 0 else 0
@@ -362,29 +404,12 @@ def compute_complexity(self) -> float:
     
     # 4. 综合指标（实际权重）
     complexity = (
-        0.4 * protocol_score +      # 有效协议数
-        0.4 * transfer_entropy +     # 转移熵（主要指标）
-        0.2 * uniformity            # 驻留均匀度
+        0.4 * protocol_score +
+        0.4 * transfer_entropy + 
+        0.2 * uniformity
     )
     
     return np.clip(complexity, 0.0, 1.0)
-
-
-def compute_transition_matrix(clusters: np.ndarray) -> np.ndarray:
-    """计算状态转移矩阵"""
-    n_clusters = len(np.unique(clusters))
-    trans_matrix = np.zeros((n_clusters, n_clusters))
-    
-    for i in range(len(clusters) - 1):
-        from_cluster = clusters[i]
-        to_cluster = clusters[i + 1]
-        trans_matrix[from_cluster, to_cluster] += 1
-    
-    # 归一化
-    row_sums = trans_matrix.sum(axis=1, keepdims=True)
-    trans_matrix = trans_matrix / (row_sums + 1e-8)
-    
-    return trans_matrix
 ```
 
 **复杂度指标说明**（实际实现）：
@@ -416,14 +441,14 @@ def adjust_participation(self):
         return
     
     # 无上限模式：降低加人阈值（从0.7→0.35）
-    if avg_exp > 0.35 and len(self.active_players) < self.MAX_N:
+    if avg_exp > self.ADD_PLAYER_THRESHOLD and len(self.active_players) < self.MAX_N:
         new_player = RandomExperiencePlayer(len(self.active_players))
         self.active_players.append(new_player)
         
     # 降低减人阈值（从0.3→0.15）
-    elif avg_exp < 0.15 and len(self.active_players) > 2:
+    elif avg_exp < self.REMOVE_PLAYER_THRESHOLD and len(self.active_players) > 2:
         worst_idx = np.argmin([p.experience_score for p in self.active_players])
-        self.active_players.pop(worst_idx)
+        removed = self.active_players.pop(worst_idx)
 ```
 
 **调整逻辑**（实际实现）：
@@ -456,7 +481,7 @@ def adjust_participation(self):
    
 3. 随机决定是否成交
    - 根据成交概率随机决定
-   - 计算手续费 (maker/taker)
+   - 计算手续费（固定费率0.05%，成交才收）
    
 4. Player 更新体验
    - 每个 Player 调用 update_experience(matched, fee, s_t)
@@ -501,17 +526,27 @@ def adjust_participation(self):
 
 ### 6.1 实验配置
 
-**V5.0 Phase 1 实验**：
+**V5.0 Phase 1 实验配置**（实际实现）：
 ```python
-EXPERIMENT_CONFIG = {
-    'num_seeds': 100,
-    'ticks': 500000,
-    'min_players': 2,
-    'max_players': 10,  # 或 None（无上限）
-    'participation_check_interval': 1000,  # 每1000 ticks检查一次
-    'complexity_window': 5000,              # 复杂度计算窗口
-    'volatility_window': 20                 # 波动率计算窗口
-}
+# 通过experiments/configs/配置文件设置
+simulation:
+  ticks: 50000  # 默认值
+  adjust_interval: 1000  # 参与调整间隔
+  max_n: null  # 无上限模式
+  initial_players: 3
+  add_player_threshold: 0.35
+  remove_player_threshold: 0.15
+
+structure_metrics:
+  window_size: 5000  # 复杂度计算窗口
+  n_clusters: 5
+  cluster_update_interval: 500  # 聚类更新间隔
+  n_init: 3
+
+chaos_rules:
+  enabled: true
+  base_chaos: 0.08  # 基础混乱因子
+  decay_factor: 0.95
 ```
 
 ### 6.2 数据记录
@@ -522,19 +557,17 @@ EXPERIMENT_CONFIG = {
 - 平均体验分数
 - 成交统计
 
-**每个 Seed 保存**：
-```python
-{
-    'seed': int,
-    'trajectory': List[Dict],  # 状态轨迹
-    'player_count_history': List[int],
-    'complexity_history': List[float],
-    'experience_history': List[float],
-    'final_state': Dict,
-    'final_complexity': float,
-    'final_player_count': int
-}
-```
+**每个 Run 保存**（通过experiments/data_saver.py）：
+- `raw/trajectory.parquet` / `trajectory.csv` - 完整轨迹数据（t, price_norm, volatility, liquidity, imbalance, complexity, N, avg_exp, cluster）
+- `raw/player_history.csv` - 玩家数量历史
+- `raw/experience_history.csv` - 平均体验历史
+- `raw/complexity_history.csv` - 复杂度历史
+- `metrics/metrics.json` - 最终指标
+- `meta/config_resolved.yaml` - 完整配置（含默认值）
+- `meta/git_commit.txt` - Git提交信息
+- `meta/pip_freeze.txt` - Python包版本
+- `meta/machine.json` - 机器信息
+- `meta/seeds.txt` - 随机种子信息
 
 ### 6.3 可复现性
 
@@ -631,9 +664,10 @@ def classify_protocol(trajectory: List[Dict[str, float]]) -> str:
 
 **复杂度计算**（实际实现）：
 - 每 500 ticks 计算一次（而非每个 tick）
-- 使用滑动窗口（最近 5000 ticks）
-- 聚类更新间隔：500 ticks
+- 使用滑动窗口（最近 5000 ticks，deque实现）
+- 聚类更新间隔：500 ticks（从100优化）
 - 窗口大小：5000 ticks
+- K-means优化：n_init=3（首次）或1（warm start），使用缓存模型初始化
 
 **状态更新**：
 - 使用向量化操作（NumPy）
@@ -830,7 +864,11 @@ Infinite-Game/
 
 **Phase 1 尚未完成，下一步目标是"榨干"该基底模型的信息量。**
 
-详见 [TODO 任务清单](TODO.md) 中的 Phase 1 实验计划部分。
+实验计划已归档到 `archive/TODO.md`。主要方向包括：
+- 系统性相图扫描
+- 稳态唯一性与多稳态检验
+- 结构新颖性与饱和时间分析
+- 结构–规模解耦的定量实证
 
 ---
 

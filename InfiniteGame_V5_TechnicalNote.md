@@ -104,12 +104,19 @@ $$f_{\text{price}}(a_i, s_t) = \max(0.01, 0.98 \cdot \exp(-4 \cdot d_i))$$
 with $d_i = |\text{price}_i - \bar{p}_t| / \bar{p}_t$ (relative distance to center price $\bar{p}_t = p_t \cdot (p_{\max} - p_{\min}) + p_{\min}$).
 
 **Stabilizing penalty** (congestion proxy, not a claim about real market mechanisms):
-$$f_{\text{chaos}}(A_t, N_t) = 1.0 - \beta \cdot \text{chaos}(A_t, N_t)$$
+$$f_{\text{chaos}}(A_t, N_t) = 1.0 - \beta \cdot \text{adjusted\_chaos}(A_t, N_t)$$
 
-where $\beta = 0.4$ is a control parameter (swept in experiments), and $\text{chaos}(A_t, N_t)$ is a macro stabilizer combining:
-- Price dispersion: $\sigma_{\text{price}} / \bar{p}_t$ (40% weight)
-- Direction entropy: $H(\text{sides}) / \log_2(2)$ (35% weight)
-- Scale overload: $\log(1 + N_t/10)$ (25% weight)
+where $\beta = 0.4$ is a control parameter (swept in experiments), and $\text{adjusted\_chaos}(A_t, N_t)$ is computed as:
+
+$$\text{adjusted\_chaos} = \text{base\_chaos\_raw} \cdot \frac{0.08}{0.15} \cdot \text{multiplier}$$
+
+where:
+- $\text{base\_chaos\_raw}(A_t, N_t)$ is a macro stabilizer combining:
+  - Price dispersion: $\sigma_{\text{price}} / \bar{p}_t$ (40% weight, clipped to [0.2, 3.0])
+  - Direction entropy: $H(\text{sides}) / \log_2(2)$ (35% weight)
+  - Scale overload: $0.6 \cdot (\text{actions}/8) + 0.4 \cdot \log(1 + N_t/10)$ (25% weight)
+- The scaling factor $0.08/0.15$ reduces the base chaos from historical 0.15 to current 0.08
+- $\text{multiplier}$ is dynamically adjusted based on player count and average experience (range [0.5, 1.5])
 
 **Note**: This is a stabilizing mechanism, not a claim about real market microstructure. The chaos factor serves as a control knob for phase diagram exploration.
 
@@ -236,7 +243,7 @@ where $H(T_i) = -\sum_j T_{ij} \log_2(T_{ij})$ is the entropy of transition prob
 **Configuration**:
 - Initial players: $N_0 = 3$
 - Ticks: $T = 50,000$
-- Adjustment interval: $\Delta = 2,000$
+- Adjustment interval: $\Delta = 1,000$ (default in code; can be set to 2000 for experiments)
 - Seeds: $\{42, 100, 200, 300, 400\}$
 
 **Variants**:
@@ -346,7 +353,7 @@ For each parameter configuration:
 
 **Normal operation** (with reflexivity):
 - Correlation $\Delta N_t$ vs $\bar{E}_t$ (at adjustment points): $r = 0.68 \pm 0.12$ (moderate, significant, $p < 0.05$)
-- Source: Computed from `experience_history` and `player_history` at adjustment intervals ($\Delta = 2000$ ticks)
+- Source: Computed from `experience_history` and `player_history` at adjustment intervals ($\Delta = 1000$ ticks, default)
 
 **Ablation** (fixed $N_t$, no reflexivity):
 - Structure still emerges: $c_T = 0.91 \pm 0.05$ (see E.3)
@@ -448,7 +455,7 @@ python main.py
 from main import V5MarketSimulator
 sim = V5MarketSimulator(
     ticks=50000,
-    adjust_interval=2000,
+    adjust_interval=1000,  # default: 1000 ticks
     MAX_N=None  # unlimited
 )
 metrics = sim.run_simulation()
