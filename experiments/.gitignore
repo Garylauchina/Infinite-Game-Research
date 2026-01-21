@@ -1,0 +1,5 @@
+# 实验输出目录（不提交到版本控制）
+outputs/
+*.pyc
+__pycache__/
+*.log

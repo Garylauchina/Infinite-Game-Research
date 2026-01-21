@@ -1,0 +1,31 @@
+# 快速测试配置（短运行时间）
+
+simulation:
+  ticks: 10000
+  adjust_interval: 2000
+  max_n: null
+  
+  initial_players: 3
+  add_player_threshold: 0.35
+  remove_player_threshold: 0.15
+
+chaos_rules:
+  enabled: true
+  base_chaos: 0.08
+  decay_factor: 0.95
+
+structure_metrics:
+  window_size: 2000
+  n_clusters: 5
+  cluster_update_interval: 200
+  n_init: 3
+
+random_seed:
+  numpy: 42
+  random: 42
+  sklearn: 42
+
+output:
+  save_trajectory: true
+  save_cluster_assignments: true
+  save_interval: 10  # 降低保存频率以加速

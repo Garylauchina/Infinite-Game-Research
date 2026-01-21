@@ -80,6 +80,23 @@ Infinite-Game-Research/
 │   ├── trading_rules.py           # 交易规则
 │   ├── chaos_rules.py             # 混乱因子规则
 │   └── metrics.py                 # 结构密度计算
+├── experiments/                   # 实验框架
+│   ├── README.md                  # 实验框架说明
+│   ├── QUICK_START.md             # 快速开始指南
+│   ├── requirements.txt           # 依赖列表
+│   ├── configs/                   # 配置文件
+│   │   ├── default.yaml           # 默认配置
+│   │   ├── quick_test.yaml        # 快速测试
+│   │   └── full_validation.yaml   # 完整验证
+│   ├── analysis/                  # 分析脚本
+│   │   ├── summarize.py           # 汇总指标
+│   │   ├── timeseries_plots.py    # 时间序列图
+│   │   ├── state_space_plots.py   # 状态空间图
+│   │   ├── compare_runs.py        # 对比运行
+│   │   └── phase_diagrams.py      # 参数扫描图
+│   ├── run_single.py              # 单seed运行
+│   ├── config_loader.py           # 配置加载
+│   └── data_saver.py              # 数据保存
 ├── data/                          # 测试数据目录
 │   ├── experiments/               # 实验运行数据
 │   ├── analysis/                  # 分析结果
@@ -190,6 +207,7 @@ Infinite-Game-Research/
 
 - **开发仓库**: 包含完整的代码实现和实验脚本（`Infinite-Game`）
 - **核心代码**: 本仓库的 `core_system/` 目录（从开发仓库锁定版本）
+- **实验框架**: 本仓库的 `experiments/` 目录（完整实验框架，可直接运行）
 - **实验数据**: 从开发仓库导入到 `data/` 目录
 - **实验报告**: 开发仓库中的 `EXPERIMENTS/` 目录
 - **系统架构**: 开发仓库中的 `CONTRACTS/ARCHITECTURE.md`
@@ -202,6 +220,26 @@ Infinite-Game-Research/
 - 验证文档描述的准确性
 
 **注意**：代码版本已锁定，如需最新代码或运行实验，请参考开发仓库。
+
+### 实验框架
+
+本仓库的 `experiments/` 目录包含完整的实验框架，可以直接运行实验：
+
+1. **安装依赖**：
+   ```bash
+   pip install -r experiments/requirements.txt
+   ```
+
+2. **运行快速测试**：
+   ```bash
+   python experiments/run_single.py --config experiments/configs/quick_test.yaml --seed 42
+   ```
+
+3. **查看结果**：
+   - 实验数据保存在 `outputs/runs/` 目录
+   - 使用分析脚本生成可视化图表
+
+详细说明请参考 [experiments/README.md](experiments/README.md) 和 [experiments/QUICK_START.md](experiments/QUICK_START.md)。
 
 ---
 

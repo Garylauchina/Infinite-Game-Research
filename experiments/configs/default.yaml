@@ -1,0 +1,35 @@
+# V5.0 实验配置 - 默认配置
+# 所有未指定的参数将使用这些默认值
+
+simulation:
+  ticks: 50000
+  adjust_interval: 1000
+  max_n: null  # null表示无上限，或指定整数上限
+  
+  # 初始玩家数
+  initial_players: 3
+  
+  # 玩家调整阈值
+  add_player_threshold: 0.35
+  remove_player_threshold: 0.15
+
+chaos_rules:
+  enabled: true
+  base_chaos: 0.08
+  decay_factor: 0.95
+
+structure_metrics:
+  window_size: 5000
+  n_clusters: 5
+  cluster_update_interval: 500
+  n_init: 3
+
+random_seed:
+  numpy: 42
+  random: 42
+  sklearn: 42  # KMeans random_state
+
+output:
+  save_trajectory: true
+  save_cluster_assignments: true
+  save_interval: 1  # 每N个tick保存一次（1=全部保存）
