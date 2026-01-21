@@ -50,7 +50,13 @@
 
 ## A. Abstract
 
-We present a **market substrate model** (zero model) that strips away all high-level mechanisms (intelligence, learning, credit, leverage, institutional rules) to isolate the minimal common rules of trading markets. **We do not model an order book nor dealer inventory; 'avatars' represent participation intensity only.** The system consists of: (1) random price/direction actions from a single abstract "Market Entity" (MarketMr) represented by multiple avatars; (2) statistical match probability based on price priority, liquidity, and a stabilizing penalty (chaos factor); (3) state evolution through aggregated statistics; (4) structure density computation via clustering and transition entropy; (5) participation intensity modulation driven by average experience.
+We present a **market substrate model** (zero model) that strips away all high-level mechanisms (intelligence, learning, credit, leverage, institutional rules) to isolate the minimal common rules of trading markets. **We do not model an order book nor dealer inventory; 'avatars' represent participation intensity only.** 
+
+**Core Design Paradigm 1**: A single market has a **unique participating entity "Market Entity" (MarketMr)** that represents the aggregation of all transactions. All trading activities belong to this single entity, which is the unified representative of all transaction aggregations.
+
+**Core Design Paradigm 2**: We design **"structure density" as a reward function** for the Market Entity. Structure density serves as a core component of the experience reward (weight 0.4), driving participation decisions. Higher structure density leads to higher experience reward, which increases participation intensity.
+
+The system consists of: (1) random price/direction actions from a single abstract "Market Entity" (MarketMr) represented by multiple avatars; (2) statistical match probability based on price priority, liquidity, and a stabilizing penalty (chaos factor); (3) state evolution through aggregated statistics; (4) structure density computation via clustering and transition entropy; (5) participation intensity modulation driven by average experience, where structure density is the key reward component.
 
 **Core finding**: Complex market structures can emerge stably from minimal trading rules alone, without requiring intelligent participants or high-level mechanisms. 
 
@@ -79,7 +85,7 @@ where:
 
 ### B.2 Action Generation
 
-At each tick $t$, $N_t$ avatars (players) of the Market Entity (MarketMr) generate actions:
+At each tick $t$, $N_t$ avatars (players) of the **Market Entity (MarketMr)** generate actions:
 
 $$A_t = \{a_i = (\text{price}_i, \text{side}_i, q_i) : i \in [1, N_t]\}$$
 
@@ -87,6 +93,8 @@ where:
 - $\text{price}_i \sim \text{Uniform}(p_{\min}, p_{\max})$: random price
 - $\text{side}_i \sim \text{Uniform}\{\text{buy}, \text{sell}\}$: random direction
 - $q_i = 1.0$: fixed quantity
+
+**Key Design Paradigm**: The Market Entity is the **unique participating entity** in the market, representing the aggregation of all transactions. All avatars belong to this single entity, and their actions aggregate to form the market's overall trading activity.
 
 **Key**: No learning, no strategy, pure randomness.
 
@@ -146,7 +154,9 @@ where $M_t \subseteq A_t$ are matched actions (sampled via $\Pr(\text{match})$).
 
 5. **Complexity**: $c_{t+1} = G(\{s_{t-k:t}\})$ (see B.5)
 
-### B.5 Structure Density (Complexity)
+### B.5 Structure Density (Complexity): Reward Function
+
+**Core Design Paradigm**: Structure density serves as a **reward function component** for the Market Entity.
 
 Structure density is computed from a sliding window of state trajectory:
 
@@ -156,6 +166,11 @@ where:
 - $P_t$: **Protocol score** = active clusters / $K$ (clusters with >2% occupancy)
 - $H_t$: **Transfer entropy** = $\mathbb{E}[H(\text{trans\_matrix})] / \log_2(K)$
 - $U_t$: **Uniformity** = $1 - \max(\text{cluster\_distribution})$
+
+**As Reward Function**:
+- Structure density is a core component of the experience reward with weight 0.4
+- Higher structure density → higher experience reward → higher participation intensity
+- The experience reward formula: $\text{instant\_reward} = \text{match\_reward} + \text{fee\_penalty} + 0.4 \cdot c_t + 0.2 \cdot v_t + 0.1 \cdot \ell_t$
 
 **Computation**:
 1. K-means clustering ($K=5$) on 4D features $[p, v, \ell, b]$ (window size 5000, update every 500 ticks)
@@ -176,6 +191,8 @@ $$\bar{E}_t = \frac{1}{N_t} \sum_{i=1}^{N_t} E_i^{(t)}$$
 $$E_i^{(t+1)} = 0.98 \cdot E_i^{(t)} + 0.02 \cdot \text{instant\_reward}_i$$
 
 $$\text{instant\_reward}_i = \text{match\_reward} + \text{fee\_penalty} + 0.4 \cdot c_t + 0.2 \cdot v_t + 0.1 \cdot \ell_t$$
+
+**Key Design Paradigm**: Structure density $c_t$ (weight 0.4) is the **core reward component** that drives the Market Entity's participation decisions. Structure density directly influences the experience reward, creating a feedback loop: structure density → experience reward → participation intensity.
 
 **Adjustment rules**:
 - If $\bar{E}_t > 0.35$ and $N_t < N_{\max}$: $N_{t+\Delta} = N_t + 1$

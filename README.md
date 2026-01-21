@@ -9,6 +9,10 @@
 
 这是一个开发项目的并行研究仓库，用于进行理论展示和测试数据分析。Infinite Game 是一个基于反身性原理的交易所模拟器，用于研究金融市场中的结构涌现和演化机制。
 
+**核心设计范式**：
+1. **唯一参与主体**：一个市场中存在唯一参与主体"市场先生"（Market Entity），代表着所有交易的聚合
+2. **结构密度作为奖励函数**：设计了"结构密度"作为奖励函数的核心组成部分（权重0.4），驱动市场先生的参与决策
+
 **开发仓库**: [`Infinite-Game`](../Infinite-Game) (本地路径: `/Users/liugang/Cursor_Store/Infinite-Game`)
 
 ---
@@ -56,7 +60,8 @@ Infinite-Game-Research/
 ├── RESEARCH_PAPER.md              # 研究论文（草稿）
 ├── TECHNICAL_DOCUMENTATION.md     # 技术文档
 ├── InfiniteGame_V5_TechnicalNote.md  # V5.0 技术笔记
-├── core_system/                   # 核心系统代码（已锁定版本）
+├── PHASE_TEST_SPECIFICATION.md      # P0-P3 阶段测试规范
+├── core_system/                   # 核心系统代码（已锁定版本，可直接使用）
 │   ├── README.md                  # 代码说明
 │   ├── __init__.py                # 包初始化
 │   ├── main.py                    # 主模拟器（V5MarketSimulator）
@@ -110,18 +115,23 @@ Infinite-Game-Research/
 
 **核心发现**：市场复杂结构的一个重要来源，是交易规则本身，而非参与者行为或制度细节。
 
-### 市场先生（Market Maker）
+### 市场先生（Market Entity / MarketMr）：唯一参与主体
 
-- **单一市场，单一市场先生**：对于一个单一市场，仅存在一个抽象的"市场先生"
-- **分身机制**：市场先生可以存在多个分身（Player），代表它的参与强度
+**核心设计范式**：一个市场中存在**唯一参与主体"市场先生"**，代表着所有交易的聚合。
+
+- **唯一参与主体**：对于一个单一市场，仅存在一个抽象的"市场先生"，它是市场中所有交易的聚合代表
+- **分身机制**：市场先生通过多个分身（Avatar/Player）表示其参与强度，分身数量 = 参与强度
+- **交易聚合**：所有分身的交易行为聚合为市场的整体交易活动，市场先生代表所有交易的统一主体
 - **盈亏抵消**：多个分身的盈利/亏损互相抵消，市场先生实际支付的只是交易费用
-- **费用购买趣味**：市场先生付出交易费用，购买的是"市场结构密度"（趣味性）
 
-### 市场结构密度（Market Structure Density）
+### 市场结构密度（Market Structure Density）：奖励函数
 
-- **定义**：衡量市场状态轨迹在状态空间中的分布复杂程度，等同于"趣味性"
-- **计算**：通过聚类分析、转移矩阵熵等指标计算
-- **作用**：市场结构密度的强弱，决定市场先生参与强度的大小（分身数量）
+**核心设计范式**：设计了"结构密度"作为奖励函数的核心组成部分。
+
+- **定义**：衡量市场状态轨迹在状态空间中的分布复杂程度
+- **作为奖励函数**：结构密度直接作为体验奖励的核心组成部分（权重0.4），驱动市场先生的参与决策
+- **计算**：通过聚类分析、转移矩阵熵等指标计算（`complexity = 0.4 * protocol_score + 0.4 * transfer_entropy + 0.2 * uniformity`）
+- **反馈机制**：市场结构密度的强弱，决定市场先生参与强度的大小（分身数量），形成"结构密度 → 体验奖励 → 参与强度"的正反馈循环
 
 ### 混乱因子（Chaos Factor）
 
@@ -190,25 +200,35 @@ Infinite-Game-Research/
 
 ### 相关资源
 
-- **开发仓库**: 包含完整的代码实现和实验脚本（`Infinite-Game`）
-- **核心代码**: 本仓库的 `core_system/` 目录（从开发仓库锁定版本）
-- **实验框架**: 本仓库的 `experiments/` 目录（完整实验框架，可直接运行）
-- **实验数据**: 从开发仓库导入到 `data/` 目录
-- **实验报告**: 开发仓库中的 `EXPERIMENTS/` 目录
-- **系统架构**: 开发仓库中的 `CONTRACTS/ARCHITECTURE.md`
+- **核心代码**: 本仓库的 `core_system/` 目录（已锁定版本，可直接使用）
+- **实验框架**: 本仓库的 `experiments/` 目录（完整实验框架，可直接运行和复现）
+- **测试规范**: [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md) - P0-P3 阶段测试规范
+- **技术笔记**: [InfiniteGame_V5_TechnicalNote.md](InfiniteGame_V5_TechnicalNote.md) - 完整技术文档
+- **开发仓库**: [`Infinite-Game`](../Infinite-Game) - 包含最新开发版本和实验脚本
 
 ### 代码说明
 
-本仓库的 `core_system/` 目录包含从开发仓库（`Infinite-Game/src/v5/`）复制的已锁定版本代码，用于：
-- 研究文档参考
-- 理解系统实现细节
-- 验证文档描述的准确性
+本仓库的 `core_system/` 目录包含完整的、可直接运行的核心系统代码：
 
-**注意**：代码版本已锁定，如需最新代码或运行实验，请参考开发仓库。
+- ✅ **可直接使用**：所有核心代码已包含，无需依赖外部仓库
+- ✅ **完全可复现**：固定随机种子，确定性执行，支持完全复现的实验
+- ✅ **已验证一致性**：核心代码与测试规范完全一致（见 [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md)）
 
-### 实验框架
+**核心组件**：
+- `main.py`: V5MarketSimulator - 主模拟器
+- `state_engine.py`: StateEngine - 状态更新引擎
+- `random_player.py`: RandomExperiencePlayer - 随机体验玩家
+- `trading_rules.py`: 交易规则（价格优先、手续费）
+- `chaos_rules.py`: 混乱因子规则（动态调整）
+- `metrics.py`: StructureMetrics - 结构密度计算
 
-本仓库的 `experiments/` 目录包含完整的实验框架，可以直接运行实验：
+**代码版本**：已锁定版本，确保研究结果的可复现性。如需最新开发版本，请参考开发仓库。
+
+### 实验框架与复现
+
+本仓库的 `experiments/` 目录包含**完整的、可直接复现的实验框架**：
+
+#### 快速开始
 
 1. **安装依赖**：
    ```bash
@@ -224,13 +244,57 @@ Infinite-Game-Research/
    - 实验数据保存在 `outputs/runs/` 目录
    - 使用分析脚本生成可视化图表
 
-详细说明请参考 [experiments/README.md](experiments/README.md) 和 [experiments/QUICK_START.md](experiments/QUICK_START.md)。
+#### 完整实验复现
+
+**单次运行**：
+```bash
+python experiments/run_single.py --config experiments/configs/default.yaml --seed 42
+```
+
+**批量运行**（多seed）：
+```bash
+for seed in 42 100 200 300 400; do
+    python experiments/run_single.py --config experiments/configs/default.yaml --seed $seed
+done
+```
+
+**阶段测试**（P0-P3）：
+参考 [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md) 了解详细的测试规范和复现方法。
+
+#### 复现性保证
+
+- ✅ **固定随机种子**：所有随机操作使用固定种子
+- ✅ **确定性执行**：相同输入产生相同输出
+- ✅ **完整数据记录**：所有实验数据自动保存，包含元数据
+- ✅ **环境配置**：自动设置线程控制，确保跨平台一致性
+
+详细说明请参考：
+- [experiments/README.md](experiments/README.md) - 实验框架说明
+- [experiments/QUICK_START.md](experiments/QUICK_START.md) - 快速开始指南
+- [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md) - 阶段测试规范
 
 ---
 
+## 复现性
+
+本仓库提供**完全可复现的研究结果**：
+
+- ✅ **核心代码完整**：`core_system/` 目录包含所有必要的代码
+- ✅ **实验框架完整**：`experiments/` 目录包含完整的实验脚本和分析工具
+- ✅ **文档完整**：所有技术细节、参数设置、算法描述都已文档化
+- ✅ **测试规范**：P0-P3 阶段测试规范已包含，核心代码已验证一致性
+
+**复现步骤**：
+1. 克隆本仓库
+2. 安装依赖：`pip install -r experiments/requirements.txt`
+3. 运行实验：`python experiments/run_single.py --config experiments/configs/default.yaml --seed 42`
+4. 查看结果：实验数据自动保存到 `outputs/runs/` 目录
+
+所有实验结果都可以通过本仓库的代码和配置完全复现。
+
 ## 贡献
 
-本项目是研究仓库，主要用于理论展示和数据分析。如需贡献代码或实验，请参考开发仓库。
+本项目是研究仓库，提供完整的可复现代码和文档。如需贡献代码或实验，请参考开发仓库 [`Infinite-Game`](../Infinite-Game)。
 
 ---
 
