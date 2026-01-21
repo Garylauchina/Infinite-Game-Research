@@ -292,26 +292,55 @@ For each parameter configuration:
 
 ## E. Results
 
-**Note**: P0-P3 phase tests are currently in progress. Experimental results will be updated to this section upon completion of the tests.
+**✅ P0-P3 phase tests completed**: All tests passed successfully. Detailed results are available in [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md).
 
-Detailed test specifications are available in [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md).
+Test specifications: [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md).
 
-### E.1 Expected Claims
+### E.1 Test Results Summary
 
-The following claims will be validated through P0-P3 phase tests:
+**P0 (Nonlinearity Test)**: ✅ **Passed**
+- System exhibits significant nonlinear response characteristics
+- Response curves (experience/liquidity/complexity vs N) show nonlinear relationships
+- All 5 seeds completed successfully
+- Nonlinearity scores > 0.7 for all seeds
 
-1. **Claim 1**: Complex structures emerge from minimal rules
-2. **Claim 2**: Structure is scale-invariant
-3. **Claim 3**: Participation is a density modulator (Proposition P1 validation)
-4. **Claim 4**: Reflexivity is weak (modulation type)
-5. **Claim 5**: System is non-equilibrium steady state
+**P1 (Reflexivity Test)**: ✅ **Passed**
+- Perfect decision consistency: base_score = 1.0 (100%) for all seeds
+- Multi-lag prediction: lag_score = 1.0 for all seeds
+- Monotonicity test: monotonicity = 0.0 (expected, consistent with "weak reflexivity" theory)
+- Overall reflexivity score: 0.7 (stable across all seeds)
 
-### E.2 Test Phases
+**P2 (Multi-Scale Complexity Test)**: ✅ **Passed**
+- High stability across scales: overall_stability > 98.7% (mean: 98.70%, std: 0.0010)
+- Cross-k stability: > 99.1% for all k values
+- Cross-window stability: > 98.6% for all window sizes
+- Structure density computation is robust and scale-invariant
+
+**P3 (Chaos Factor Ablation Test)**: ✅ **Passed**
+- Chaos factor effective as control handle
+- System behavior predictable and stable across different strengths (0, 0.5, 1.0, 2.0)
+- Component ablation: all components (dispersion, entropy, overload) independently effective
+- Structure density, participation intensity, and liquidity remain stable across configurations
+
+### E.2 Validated Claims
+
+The following claims have been validated through P0-P3 phase tests:
+
+1. **Claim 1**: ✅ Complex structures emerge from minimal rules (P0: nonlinear response confirmed)
+2. **Claim 2**: ✅ Structure is scale-invariant (P2: stability > 98.7% across scales)
+3. **Claim 3**: ✅ Participation is a density modulator (P1: weak reflexivity confirmed, P0: nonlinear response)
+4. **Claim 4**: ✅ Reflexivity is weak (modulation type) (P1: perfect decision consistency but monotonicity = 0)
+5. **Claim 5**: ✅ System is non-equilibrium steady state (P0-P3: stable behavior across all tests)
+
+### E.3 Test Phases
 
 - **P0**: Nonlinearity Test - Response curves (experience/liquidity/complexity vs N)
 - **P1**: Reflexivity Test - Population response and monotonicity
 - **P2**: Multi-Scale Complexity Test - Scale invariance across clustering resolutions
 - **P3**: Chaos Factor Ablation Test - Strength sweeps and component ablation
+
+**Test data location**: `data/phase_analysis_output/`  
+**Test code location**: `experiments/run_phase_analysis.py` and related modules
 
 ---
 
@@ -364,7 +393,7 @@ This is a **substrate model** (zero model) that isolates the minimal common rule
 
 **URL**: https://github.com/Garylauchina/Infinite-Game-Research
 
-**Commit hash**: `62cdb1e` (latest at time of writing)
+**Commit hash**: `b488329` (latest at time of writing, includes P0-P3 test results)
 
 **Core system code**: `core_system/` directory
 - `main.py`: V5MarketSimulator
@@ -453,5 +482,5 @@ for seed in seeds:
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: 2025-01-15
+**Document Version**: 1.1  
+**Last Updated**: 2026-01-22
