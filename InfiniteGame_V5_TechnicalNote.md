@@ -292,111 +292,26 @@ For each parameter configuration:
 
 ## E. Results
 
-### E.1 Claim 1: Complex Structures Emerge from Minimal Rules
+**Note**: P0-P3 phase tests are currently in progress. Experimental results will be updated to this section upon completion of the tests.
 
-**Claim**: Market structures (protocols, transitions, complexity) emerge stably without intelligent participants.
+Detailed test specifications are available in [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md).
 
-**Evidence**:
-- **Final complexity**: $c_T = 0.958 \pm 0.012$ (mean ± std, $n=5$ seeds)
-  - Source: `StructureMetrics.compute_complexity()` at final tick $T=50,000$
-  - Window: Last 5000 ticks (sliding window)
-- **Active protocols**: $P_T = 0.80 \pm 0.05$ (4 out of 5 clusters active)
-  - Source: `StructureMetrics.get_cluster_info()['active_protocols']`
-  - Definition: Clusters with >2% occupancy in trajectory window
-- **Transition coverage**: $0.72 \pm 0.08$ (72% of possible transitions occur)
-  - Source: Computed from `cluster_assignments` sequence in `StructureMetrics`
-  - Definition: Fraction of possible $K \times K$ transitions that occur at least once
+### E.1 Expected Claims
 
-**Summary table** (5 seeds, $T=50,000$ ticks):
+The following claims will be validated through P0-P3 phase tests:
 
-| Seed | Final $N_T$ | Avg $\ell_T$ | Final $c_T$ | Active Protocols | Coverage |
-|------|-------------|--------------|-------------|------------------|----------|
-| 42   | 26          | 0.604        | 0.958       | 4                | 0.72     |
-| 100  | 24          | 0.612        | 0.945       | 4                | 0.68     |
-| 200  | 25          | 0.598        | 0.971       | 4                | 0.75     |
-| 300  | 23          | 0.607        | 0.952       | 3                | 0.71     |
-| 400  | 27          | 0.601        | 0.964       | 4                | 0.74     |
-| Mean ± Std | $25.0 \pm 1.4$ | $0.604 \pm 0.005$ | $0.958 \pm 0.012$ | $3.8 \pm 0.4$ | $0.72 \pm 0.08$ |
+1. **Claim 1**: Complex structures emerge from minimal rules
+2. **Claim 2**: Structure is scale-invariant
+3. **Claim 3**: Participation is a density modulator (Proposition P1 validation)
+4. **Claim 4**: Reflexivity is weak (modulation type)
+5. **Claim 5**: System is non-equilibrium steady state
 
-**Limitation**: This model cannot generate **strategic coordination** or **information cascades** because actions are purely random.
+### E.2 Test Phases
 
-### E.2 Claim 2: Structure is Scale-Invariant
-
-**Claim**: Protocol structure remains stable across different clustering resolutions.
-
-**Evidence**:
-- Complexity correlation across $K \in \{3,5,7,10\}$: $r = 0.89 \pm 0.04$
-- Dominant cluster proportion: stable at $0.35 \pm 0.03$ across $K$
-- Transition topology: 85% overlap in cluster connections
-
-**Limitation**: This model cannot generate **hierarchical structures** (nested protocols) because clustering is flat.
-
-### E.3 Claim 3: Participation is a Density Modulator (Proposition P1 validation)
-
-**Claim**: Player count $N_t$ affects transaction density but not structure generation. Structure density $c_t$ drives participation $N_t$, not vice versa.
-
-**Evidence**:
-
-**Normal operation** (with participation adjustment):
-- Correlation $N_t$ vs complexity $c_t$ (steady state, last 10k ticks): $r = 0.12 \pm 0.08$ (weak, not significant)
-- Structure metrics vs $N_t$ (steady state): slope $= -0.001 \pm 0.003$ (flat)
-
-**Ablation** (fixed $N_t = 10$, no participation adjustment):
-- Complexity: $c_T = 0.91 \pm 0.05$ (mean ± std, $n=5$ seeds)
-- Active protocols: $3.6 \pm 0.5$ (vs $3.8 \pm 0.4$ in normal operation)
-- Transition coverage: $0.69 \pm 0.09$ (vs $0.72 \pm 0.08$ in normal operation)
-
-**Comparison table** (normal vs ablation, $T=50,000$ ticks):
-
-| Condition | Final $c_T$ | Active Protocols | Coverage | $N_t$ vs $c_t$ correlation |
-|-----------|-------------|------------------|----------|----------------------------|
-| Normal (adjustment enabled) | $0.958 \pm 0.012$ | $3.8 \pm 0.4$ | $0.72 \pm 0.08$ | $0.12 \pm 0.08$ (weak) |
-| Ablation (fixed $N_t=10$) | $0.91 \pm 0.05$ | $3.6 \pm 0.5$ | $0.69 \pm 0.09$ | N/A (fixed $N_t$) |
-
-**Source**: 
-- Normal: `V5MarketSimulator.run_simulation()` with default `adjust_participation()`
-- Ablation: Same code with `adjust_participation()` disabled and $N_t$ clamped to 10
-- Window: Steady state (last 10,000 ticks) for correlation; final tick for summary metrics
-
-**Conclusion**: Structure emerges regardless of participation adjustment, validating that $c_t \to N_t$ (density drives participation) while $N_t \to c_t$ is weak.
-
-**Limitation**: This model cannot generate **network effects** or **critical mass phenomena** because players do not interact directly.
-
-### E.4 Claim 4: Reflexivity is Weak (Modulation Type)
-
-**Claim**: Reflexivity modulates participation but does not generate structure. This validates the weak reflexivity hypothesis.
-
-**Evidence**:
-
-**Normal operation** (with reflexivity):
-- Correlation $\Delta N_t$ vs $\bar{E}_t$ (at adjustment points): $r = 0.68 \pm 0.12$ (moderate, significant, $p < 0.05$)
-- Source: Computed from `experience_history` and `player_history` at adjustment intervals ($\Delta = 1000$ ticks, default)
-
-**Ablation** (fixed $N_t$, no reflexivity):
-- Structure still emerges: $c_T = 0.91 \pm 0.05$ (see E.3)
-- Complexity difference vs normal: $\Delta c = 0.02 \pm 0.05$ (not significant, $p > 0.1$)
-
-**Comparison** (same data as E.3):
-
-| Condition | Final $c_T$ | $\Delta N_t$ vs $\bar{E}_t$ correlation |
-|-----------|-------------|------------------------------------------|
-| Normal (reflexivity enabled) | $0.958 \pm 0.012$ | $0.68 \pm 0.12$ (significant) |
-| Ablation (fixed $N_t$, no reflexivity) | $0.91 \pm 0.05$ | N/A (no $\Delta N_t$) |
-
-**Conclusion**: Reflexivity is a **modulation term** (affects $N_t$ via $\bar{E}_t$), not a **structure generator** (structure emerges without it).
-
-**Limitation**: This model cannot generate **strong reflexivity** (self-reinforcing feedback loops) because experience updates are bounded ($E_i \in [-1, 1]$) and smoothed (EMA $\alpha=0.02$).
-
-### E.5 Claim 5: System is Non-Equilibrium Steady State
-
-**Claim**: System maintains stable but non-static structure over long time horizons.
-
-**Evidence**:
-- No structural collapse observed in $T = 500,000$ ticks (10x baseline)
-- Complexity stability: $\text{std}(c_t) = 0.08$ over last 50k ticks
-- Protocol persistence: average protocol lifetime $> 10,000$ ticks
-
-**Limitation**: This model cannot generate **phase transitions** or **structural collapse** because state updates are continuous and bounded.
+- **P0**: Nonlinearity Test - Response curves (experience/liquidity/complexity vs N)
+- **P1**: Reflexivity Test - Population response and monotonicity
+- **P2**: Multi-Scale Complexity Test - Scale invariance across clustering resolutions
+- **P3**: Chaos Factor Ablation Test - Strength sweeps and component ablation
 
 ---
 
