@@ -438,7 +438,7 @@ def update_experience(self, matched, fee, s_t):
 - 参与强度由市场结构密度决定
 - 市场先生通过调整分身数量来响应市场趣味性
 
-**实验结果**：P0-P3 阶段测试正在进行中，实验结果将在测试完成后更新。
+**✅ 实验结果**：P0-P3 阶段测试已完成，所有测试均成功通过。详细结果请参考 [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md)。
 
 ---
 
@@ -477,13 +477,14 @@ def update_experience(self, matched, fee, s_t):
 
 ### 5.3 实验验证
 
-**实验结果**：P0-P3 阶段测试正在进行中，实验结果将在测试完成后更新。
+**✅ 实验结果**：P0-P3 阶段测试已完成，所有测试均成功通过。详细结果请参考 [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md)。
 
-详细的测试规范请参考 [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md)。
+详细的测试规范请参考 [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md)。  
+完整的测试结果请参考 [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md)。
 
-### 5.4 预期研究问题
+### 5.4 研究问题验证结果
 
-通过 P0-P3 阶段测试，我们将验证以下研究问题：
+通过 P0-P3 阶段测试，我们已验证以下研究问题：
 
 **1. 复杂结构是否可以在极简规则下稳定涌现**
 
