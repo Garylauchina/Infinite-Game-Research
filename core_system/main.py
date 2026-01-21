@@ -6,11 +6,11 @@
 
 import numpy as np
 import os
-from state_engine import StateEngine, MarketState, Action
-from trading_rules import compute_fee, SIMPLEST_RULES
-from chaos_rules import compute_match_prob, ChaosFactor
-from random_player import RandomExperiencePlayer
-from metrics import StructureMetrics
+from .state_engine import StateEngine, MarketState, Action
+from .trading_rules import compute_fee, SIMPLEST_RULES
+from .chaos_rules import compute_match_prob, ChaosFactor
+from .random_player import RandomExperiencePlayer
+from .metrics import StructureMetrics
 import time
 import warnings
 warnings.filterwarnings('ignore', category=UserWarning)  # 忽略字体警告

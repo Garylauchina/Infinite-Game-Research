@@ -7,8 +7,8 @@ RandomExperiencePlayer：市场先生"试玩游戏"的真实行为
 """
 
 import numpy as np
-from trading_rules import compute_match_prob, compute_fee, SIMPLEST_RULES
-from state_engine import Action, MarketState
+from .trading_rules import compute_fee, SIMPLEST_RULES
+from .state_engine import Action, MarketState
 from typing import Dict, Any, List
 
 class RandomExperiencePlayer:

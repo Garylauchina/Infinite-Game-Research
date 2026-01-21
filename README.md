@@ -68,14 +68,25 @@ Infinite-Game-Research/
 ├── THEORETICAL_FRAMEWORK.md       # 理论框架文档
 ├── RESEARCH_PAPER.md              # 研究论文（草稿）
 ├── TECHNICAL_DOCUMENTATION.md     # 技术文档
-└── core_system/                   # 核心系统代码
-    ├── README.md                  # 代码说明
-    ├── main.py                    # 主模拟器
-    ├── random_player.py           # 随机体验玩家
-    ├── state_engine.py            # 状态引擎
-    ├── trading_rules.py           # 交易规则
-    ├── chaos_rules.py              # 混乱因子规则
-    └── metrics.py                 # 结构密度计算
+├── V5.0_PHASE1_REPORT.md         # Phase 1 研究报告
+├── InfiniteGame_V5_TechnicalNote.md  # V5.0 技术笔记
+├── TODO.md                        # 任务清单
+├── core_system/                   # 核心系统代码（已锁定版本）
+│   ├── README.md                  # 代码说明
+│   ├── __init__.py                # 包初始化
+│   ├── main.py                    # 主模拟器（V5MarketSimulator）
+│   ├── random_player.py           # 随机体验玩家
+│   ├── state_engine.py            # 状态引擎
+│   ├── trading_rules.py           # 交易规则
+│   ├── chaos_rules.py             # 混乱因子规则
+│   └── metrics.py                 # 结构密度计算
+├── data/                          # 测试数据目录
+│   ├── experiments/               # 实验运行数据
+│   ├── analysis/                  # 分析结果
+│   └── README.md                  # 数据说明
+└── archive/                       # 归档目录
+    ├── README.md                  # 归档说明
+    └── [旧资料和工具文件]
 ```
 
 ---
@@ -177,9 +188,20 @@ Infinite-Game-Research/
 
 ### 相关资源
 
-- **开发仓库**: 包含完整的代码实现和实验脚本
+- **开发仓库**: 包含完整的代码实现和实验脚本（`Infinite-Game`）
+- **核心代码**: 本仓库的 `core_system/` 目录（从开发仓库锁定版本）
+- **实验数据**: 从开发仓库导入到 `data/` 目录
 - **实验报告**: 开发仓库中的 `EXPERIMENTS/` 目录
 - **系统架构**: 开发仓库中的 `CONTRACTS/ARCHITECTURE.md`
+
+### 代码说明
+
+本仓库的 `core_system/` 目录包含从开发仓库（`Infinite-Game/src/v5/`）复制的已锁定版本代码，用于：
+- 研究文档参考
+- 理解系统实现细节
+- 验证文档描述的准确性
+
+**注意**：代码版本已锁定，如需最新代码或运行实验，请参考开发仓库。
 
 ---
 

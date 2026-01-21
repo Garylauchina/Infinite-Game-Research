@@ -9,8 +9,8 @@
 import numpy as np
 from collections import Counter
 from typing import List
-from state_engine import Action, MarketState
-from trading_rules import SIMPLEST_RULES
+from .state_engine import Action, MarketState
+from .trading_rules import SIMPLEST_RULES
 
 def compute_price_dispersion(actions: List[Action]) -> float:
     """报价分散度 - 流动性碎片化现象"""

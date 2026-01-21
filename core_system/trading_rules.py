@@ -7,7 +7,7 @@
 """
 
 import numpy as np
-from state_engine import Action, MarketState
+from .state_engine import Action, MarketState
 
 SIMPLEST_RULES = {
     'price_min': 40000.0,
