@@ -791,25 +791,29 @@ pandas >= 1.2.0         # 数据分析
 
 ### B. 代码结构
 
+本仓库的代码结构：
+
 ```
-Infinite-Game/
-├── scripts/
-│   └── v5_0/                     # V5.0 实验
-│       ├── main.py               # 主模拟器
-│       ├── random_player.py      # RandomExperiencePlayer
-│       ├── state_engine.py        # 状态更新逻辑
-│       ├── complexity_calculator.py  # 复杂度计算
-│       ├── participation_adjuster.py # 参与度调整
-│       └── batch_runner.py       # 批量实验脚本
-├── tests/                        # 测试
-└── configs/                      # 配置文件
+Infinite-Game-Research/
+├── core_system/                  # 核心系统代码（已锁定版本）
+│   ├── main.py                   # 主模拟器
+│   ├── random_player.py          # RandomExperiencePlayer
+│   ├── state_engine.py           # 状态更新逻辑
+│   ├── metrics.py                # 结构密度计算
+│   ├── trading_rules.py          # 交易规则
+│   └── chaos_rules.py            # 混乱因子规则
+├── experiments/                  # 实验框架
+│   ├── run_single.py             # 单次运行
+│   ├── configs/                  # 配置文件
+│   └── analysis/                 # 分析脚本
+└── data/                         # 实验数据
 ```
 
 ### C. 参考文档
 
 - 理论框架：`THEORETICAL_FRAMEWORK.md`
 - 研究论文：`RESEARCH_PAPER.md`
-- 系统架构：开发仓库 `CONTRACTS/ARCHITECTURE.md`
+- 技术文档：`TECHNICAL_DOCUMENTATION.md`
 
 ---
 

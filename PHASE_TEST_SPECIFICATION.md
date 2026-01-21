@@ -18,17 +18,19 @@
 6. 计算调整后的R²（adj-R²），比较线性vs二次模型的增益
 7. 使用soft gain公式计算非线性得分：`score = 1 - exp(-gain / 0.05)`
 
-**测试代码绝对路径**：
-- 主脚本：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py`
-- 验证器：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/validation_v2_fixed.py`
+**测试代码**（参考路径）：
+- 主脚本：`run_phase_analysis.py`
+- 验证器：`validation_v2_fixed.py`
 - 核心方法：
-  - `run_n_sweep()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/validation_v2_fixed.py` (第103-132行)
-  - `test_nonlinearity_response_curve()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/validation_v2_fixed.py` (第134-250行)
+  - `run_n_sweep()`: `validation_v2_fixed.py` (第103-132行)
+  - `test_nonlinearity_response_curve()`: `validation_v2_fixed.py` (第134-250行)
 
-**测试结果绝对路径**：
-- 响应曲线数据：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/response_curve_{seed}.csv`
-- 诊断图：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/nonlinearity_diagnosis_{seed}.png`
-- 汇总结果：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/phase_analysis_summary.csv`
+**测试结果**（参考路径）：
+- 响应曲线数据：`phase_analysis_output/response_curve_{seed}.csv`
+- 诊断图：`phase_analysis_output/nonlinearity_diagnosis_{seed}.png`
+- 汇总结果：`phase_analysis_output/phase_analysis_summary.csv`
+
+**注意**：本仓库的 `core_system/` 目录包含完整的核心代码，可以直接用于复现实验。
 
 **输出文件格式**：
 - `response_curve_{seed}.csv`: CSV格式，包含列：N, avg_experience, avg_liquidity, avg_complexity
@@ -56,16 +58,16 @@
    - 使用Spearman相关系数检验P(add)与E的单调性
 7. 综合得分：`score = 0.4 * base_score + 0.3 * lag_score + 0.3 * monotonicity`
 
-**测试代码绝对路径**：
-- 主脚本：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py`
-- 验证器：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/validation_v2_fixed.py`
+**测试代码**（参考路径）：
+- 主脚本：`run_phase_analysis.py`
+- 验证器：`validation_v2_fixed.py`
 - 核心方法：
-  - `test_reflexivity_population()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/validation_v2_fixed.py` (第252-361行)
-  - `run_p1_reflexivity()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py` (第64-99行)
+  - `test_reflexivity_population()`: `validation_v2_fixed.py` (第252-361行)
+  - `run_p1_reflexivity()`: `run_phase_analysis.py` (第64-99行)
 
-**测试结果绝对路径**：
-- 校准数据：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/reflexivity_calibration_{seed}.json`
-- 汇总结果：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/phase_analysis_summary.csv`
+**测试结果**（参考路径）：
+- 校准数据：`phase_analysis_output/reflexivity_calibration_{seed}.json`
+- 汇总结果：`phase_analysis_summary.csv`
 
 **输出文件格式**：
 - `reflexivity_calibration_{seed}.json`: JSON格式，包含：
@@ -95,17 +97,17 @@
    - 固定k，跨窗口大小的稳定性：`stability_k{k} = 1 - std(cpx_k{k}_w1000, cpx_k{k}_w5000, ...) / mean(...)`
    - 综合稳定性：`overall_stability = 1 - std(all_cpx_values) / mean(all_cpx_values)`
 
-**测试代码绝对路径**：
-- 主脚本：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py`
-- 多尺度计算模块：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/multi_scale_complexity.py`
+**测试代码**（参考路径）：
+- 主脚本：`run_phase_analysis.py`
+- 多尺度计算模块：`multi_scale_complexity.py`
 - 核心方法：
-  - `compute_complexity_multi_scale()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/multi_scale_complexity.py` (第14-50行)
-  - `compute_complexity_sensitivity()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/multi_scale_complexity.py` (第52-88行)
-  - `run_p2_multiscale()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py` (第101-125行)
+  - `compute_complexity_multi_scale()`: `multi_scale_complexity.py` (第14-50行)
+  - `compute_complexity_sensitivity()`: `multi_scale_complexity.py` (第52-88行)
+  - `run_p2_multiscale()`: `run_phase_analysis.py` (第101-125行)
 
-**测试结果绝对路径**：
-- 多尺度数据：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/complexity_multiscale_{seed}.json`
-- 汇总结果：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/phase_analysis_summary.csv`
+**测试结果**（参考路径）：
+- 多尺度数据：`phase_analysis_output/complexity_multiscale_{seed}.json`
+- 汇总结果：`phase_analysis_output/phase_analysis_summary.csv`
 
 **输出文件格式**：
 - `complexity_multiscale_{seed}.json`: JSON格式，包含：
@@ -134,16 +136,16 @@
    - 记录最终指标：final_complexity, final_player_count, avg_liquidity
 4. 比较不同配置下的结构变化
 
-**测试代码绝对路径**：
-- 主脚本：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py`
-- 消融实验模块：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/chaos_ablation.py`
+**测试代码**（参考路径）：
+- 主脚本：`run_phase_analysis.py`
+- 消融实验模块：`chaos_ablation.py`
 - 核心方法：
-  - `run_chaos_ablation_experiment()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/chaos_ablation.py` (第11-120行)
-  - `run_p3_chaos_ablation()`: `/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py` (第127-189行)
+  - `run_chaos_ablation_experiment()`: `chaos_ablation.py` (第11-120行)
+  - `run_p3_chaos_ablation()`: `run_phase_analysis.py` (第127-189行)
 
-**测试结果绝对路径**：
-- 消融结果：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/chaos_ablation_{seed}.json`
-- 汇总结果：`/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/phase_analysis_summary.csv`
+**测试结果**（参考路径）：
+- 消融结果：`phase_analysis_output/chaos_ablation_{seed}.json`
+- 汇总结果：`phase_analysis_output/phase_analysis_summary.csv`
 
 **输出文件格式**：
 - `chaos_ablation_{seed}.json`: JSON格式，包含每个配置的结果列表，每个配置包含：
@@ -158,14 +160,12 @@
 
 ## 执行脚本
 
-**主执行脚本绝对路径**：
-`/Users/liugang/Cursor_Store/Infinite-Game/experiments/run_phase_analysis.py`
-
-**执行方式**：
+**执行方式**（参考）：
 ```bash
-cd /Users/liugang/Cursor_Store/Infinite-Game/experiments
 python run_phase_analysis.py --seeds 5 --ticks 500000 --phase {p0|p1|p2|p3|all} --output phase_analysis_output
 ```
+
+**注意**：具体的测试脚本路径和实验框架代码请参考测试规范中的说明。本仓库的 `core_system/` 目录包含完整的核心代码，可以直接用于复现实验。
 
 **参数说明**：
 - `--seeds`: 种子数量（默认：5）
@@ -178,14 +178,6 @@ python run_phase_analysis.py --seeds 5 --ticks 500000 --phase {p0|p1|p2|p3|all} 
 
 ## 依赖模块
 
-**基底模型代码路径**（开发仓库）：
-- `/Users/liugang/Cursor_Store/Infinite-Game/src/v5/main.py` - V5MarketSimulator
-- `/Users/liugang/Cursor_Store/Infinite-Game/src/v5/state_engine.py` - 状态引擎
-- `/Users/liugang/Cursor_Store/Infinite-Game/src/v5/random_player.py` - 随机体验玩家
-- `/Users/liugang/Cursor_Store/Infinite-Game/src/v5/trading_rules.py` - 交易规则
-- `/Users/liugang/Cursor_Store/Infinite-Game/src/v5/chaos_rules.py` - 混乱因子规则
-- `/Users/liugang/Cursor_Store/Infinite-Game/src/v5/metrics.py` - 结构密度计算
-
 **本仓库核心代码路径**（已锁定版本）：
 - `core_system/main.py` - V5MarketSimulator
 - `core_system/state_engine.py` - 状态引擎
@@ -194,10 +186,7 @@ python run_phase_analysis.py --seeds 5 --ticks 500000 --phase {p0|p1|p2|p3|all} 
 - `core_system/chaos_rules.py` - 混乱因子规则
 - `core_system/metrics.py` - 结构密度计算
 
-**实验框架代码路径**：
-- `/Users/liugang/Cursor_Store/Infinite-Game/experiments/validation_v2_fixed.py` - 验证器
-- `/Users/liugang/Cursor_Store/Infinite-Game/experiments/multi_scale_complexity.py` - 多尺度计算
-- `/Users/liugang/Cursor_Store/Infinite-Game/experiments/chaos_ablation.py` - 混沌因子消融
+**注意**：测试规范中提到的实验框架代码路径（如 `validation_v2_fixed.py`、`multi_scale_complexity.py`、`chaos_ablation.py`）是测试脚本的参考路径。本仓库的 `core_system/` 目录包含完整的核心代码，可以直接用于复现实验。
 
 ---
 
@@ -219,8 +208,10 @@ python run_phase_analysis.py --seeds 5 --ticks 500000 --phase {p0|p1|p2|p3|all} 
 
 ## 输出目录结构
 
+测试输出目录结构（参考）：
+
 ```
-/Users/liugang/Cursor_Store/Infinite-Game/experiments/phase_analysis_output/
+phase_analysis_output/
 ├── response_curve_{seed}.csv              # P0: 响应曲线数据
 ├── nonlinearity_diagnosis_{seed}.png      # P0: 诊断图
 ├── reflexivity_calibration_{seed}.json    # P1: 反身性校准数据
@@ -276,12 +267,7 @@ python run_phase_analysis.py --seeds 5 --ticks 500000 --phase {p0|p1|p2|p3|all} 
 
 ### ⚠️ 需要注意的差异
 
-1. **代码路径**：
-   - 测试规范引用：`/Users/liugang/Cursor_Store/Infinite-Game/src/v5/...`（开发仓库）
-   - 本仓库路径：`core_system/...`（研究仓库，已锁定版本）
-   - **说明**: 这是预期的，本仓库包含的是已锁定的代码版本用于研究参考
-
-2. **默认调整间隔**：
+1. **默认调整间隔**：
    - 测试规范中未明确指定，但测试代码可能使用不同的值
    - 本仓库默认：`adjust_interval=1000` (main.py 第25行)
    - **说明**: 测试代码可能会覆盖此参数，不影响测试结果

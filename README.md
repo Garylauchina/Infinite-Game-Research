@@ -7,13 +7,11 @@
 
 ## 项目简介
 
-这是一个开发项目的并行研究仓库，用于进行理论展示和测试数据分析。Infinite Game 是一个基于反身性原理的交易所模拟器，用于研究金融市场中的结构涌现和演化机制。
+这是一个研究仓库，用于进行理论展示和测试数据分析。Infinite Game 是一个基于反身性原理的交易所模拟器，用于研究金融市场中的结构涌现和演化机制。
 
 **核心设计范式**：
 1. **唯一参与主体**：一个市场中存在唯一参与主体"市场先生"（Market Entity），代表着所有交易的聚合
 2. **结构密度作为奖励函数**：设计了"结构密度"作为奖励函数的核心组成部分（权重0.4），驱动市场先生的参与决策
-
-**开发仓库**: [`Infinite-Game`](../Infinite-Game) (本地路径: `/Users/liugang/Cursor_Store/Infinite-Game`)
 
 ---
 
@@ -191,7 +189,6 @@ Infinite-Game-Research/
 - **实验框架**: 本仓库的 `experiments/` 目录（完整实验框架，可直接运行和复现）
 - **测试规范**: [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md) - P0-P3 阶段测试规范
 - **技术笔记**: [InfiniteGame_V5_TechnicalNote.md](InfiniteGame_V5_TechnicalNote.md) - 完整技术文档
-- **开发仓库**: [`Infinite-Game`](../Infinite-Game) - 包含最新开发版本和实验脚本
 
 ### 代码说明
 
@@ -209,7 +206,7 @@ Infinite-Game-Research/
 - `chaos_rules.py`: 混乱因子规则（动态调整）
 - `metrics.py`: StructureMetrics - 结构密度计算
 
-**代码版本**：已锁定版本，确保研究结果的可复现性。如需最新开发版本，请参考开发仓库。
+**代码版本**：已锁定版本，确保研究结果的可复现性。
 
 ### 实验框架与复现
 
@@ -281,7 +278,7 @@ done
 
 ## 贡献
 
-本项目是研究仓库，提供完整的可复现代码和文档。如需贡献代码或实验，请参考开发仓库 [`Infinite-Game`](../Infinite-Game)。
+本项目是研究仓库，提供完整的可复现代码和文档。
 
 ---
 
@@ -294,9 +291,9 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 ## 联系方式
 
 - **作者**: 刘刚
+- **邮箱**: garylauchina@gmail.com
 - **项目**: Infinite Game
-- **日期**: 2025-01-15
 
 ---
 
-**最后更新**: 2025-01-15
+**最后更新**: 2026-01-22

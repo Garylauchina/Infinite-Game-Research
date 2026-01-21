@@ -1,6 +1,6 @@
 # 测试数据目录
 
-此目录用于存储从 Infinite-Game 仓库导入的实验数据和测试结果。
+此目录用于存储实验数据和测试结果。
 
 ## 目录结构
 
@@ -10,18 +10,16 @@ data/
 │   ├── runs/       # 单次运行数据
 │   └── sweeps/     # 参数扫描数据
 ├── analysis/       # 分析结果
-│   ├── phase_analysis/  # 阶段分析结果
+│   ├── phase_analysis/  # 阶段分析结果（P0-P3）
 │   └── validation/      # 验证结果
 └── README.md       # 本文件
 ```
 
-## 数据导入说明
+## 数据说明
 
-从 Infinite-Game 仓库导入数据时，请保持以下结构：
-
-1. **实验运行数据**：从 `Infinite-Game/EXPERIMENTS/outputs/runs/` 复制到 `data/experiments/runs/`
-2. **分析结果**：从 `Infinite-Game/EXPERIMENTS/phase_analysis_output/` 复制到 `data/analysis/phase_analysis/`
-3. **验证结果**：从 `Infinite-Game/v5.0_phase1/` 相关输出复制到 `data/analysis/validation/`
+1. **实验运行数据**：保存在 `data/experiments/runs/` 目录
+2. **分析结果**：保存在 `data/analysis/phase_analysis/` 目录（P0-P3 阶段测试结果）
+3. **验证结果**：保存在 `data/analysis/validation/` 目录
 
 ## 注意事项
 
