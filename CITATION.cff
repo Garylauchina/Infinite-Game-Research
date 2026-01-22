@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+title: "Infinite Game V5.0: Market Substrate Model"
+version: 5.0.0
+date-released: 2026-01-22
+doi: 10.5281/zenodo.XXXXXXX
+authors:
+  - family-names: Liu
+    given-names: Gang
+    email: garylauchina@gmail.com
+    orcid: https://orcid.org/0000-0000-0000-0000
+repository-code: https://github.com/Garylauchina/Infinite-Game-Research
+url: https://github.com/Garylauchina/Infinite-Game-Research
+license: MIT
+keywords:
+  - market simulation
+  - reflexivity
+  - emergence
+  - structure density
+  - complexity
+  - non-equilibrium systems
+  - game theory
+abstract: "Infinite Game V5.0 is a market substrate model (zero model) that simulates financial market structure emergence and evolution based on reflexivity principles. The model features a unique market entity (Market Mr.) and uses structure density as a core component of the reward function. It demonstrates how complex market structures can emerge from simple trading rules without requiring individual strategy intelligence, information asymmetry, or institutional complexity."
