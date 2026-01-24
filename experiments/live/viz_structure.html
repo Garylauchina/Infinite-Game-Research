@@ -1,0 +1,1490 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Infinite Game - Structure Visualization</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html, body { width:100%; height:100%; overflow:hidden; background:#05060a; color:#e0e0e0; font-family:monospace; }
+    #app { width:100%; height:100%; display:flex; flex-direction:column; }
+    
+    /* Tab切换 */
+    #tabs { display:flex; gap:8px; padding:12px; background:#0a0b0f; border-bottom:1px solid #1a1b1f; }
+    .tab { padding:8px 16px; background:#15161a; border:1px solid #2a2b2f; cursor:pointer; border-radius:4px; }
+    .tab:hover { background:#1a1b1f; }
+    .tab.active { background:#2a3a4a; border-color:#4a5a6a; }
+    
+    /* 视图容器 */
+    #view-container { flex:1; position:relative; overflow:hidden; }
+    .view { position:absolute; width:100%; height:100%; display:none; }
+    .view.active { display:block; }
+    
+    /* HUD */
+    #hud { position:fixed; top:60px; right:12px; background:rgba(10,11,15,0.8); padding:12px; border-radius:6px; font-size:11px; line-height:1.6; min-width:180px; z-index:1000; }
+    #hud .metric { margin:4px 0; }
+    #hud .label { color:#9aa4b2; }
+    #hud .value { color:#e0e0e0; font-weight:bold; }
+    
+    /* 等待状态 */
+    .waiting { 
+      display:flex; 
+      align-items:center; 
+      justify-content:center; 
+      height:100%; 
+      width:100%;
+      color:#6a7a8a; 
+      font-size:14px; 
+      position:absolute;
+      top:0;
+      left:0;
+      z-index:10;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="tabs">
+      <div class="tab active" data-view="A">View A: 3D Graph</div>
+      <div class="tab" data-view="B">View B: Lineage Wall</div>
+      <div class="tab" data-view="C">View C: Embedding Cloud</div>
+    </div>
+    
+    <div id="view-container">
+      <div id="viewA" class="view active">
+        <div class="waiting">Waiting for graph snapshot...</div>
+      </div>
+      <div id="viewB" class="view">
+        <div class="waiting">Waiting for graph snapshot...</div>
+      </div>
+      <div id="viewC" class="view">
+        <div class="waiting">Waiting for graph snapshot...</div>
+      </div>
+    </div>
+    
+    <div id="hud">
+      <div class="metric" style="color:#9aa4b2; font-size:10px; margin-bottom:8px;">WS: <span id="ws-status">Connecting...</span></div>
+      <div class="metric"><span class="label">Active Protocols:</span> <span class="value" id="hud-active">-</span></div>
+      <div class="metric"><span class="label">Transfer Entropy:</span> <span class="value" id="hud-entropy">-</span></div>
+      <div class="metric"><span class="label">Uniformity:</span> <span class="value" id="hud-uniformity">-</span></div>
+      <div class="metric"><span class="label">Complexity:</span> <span class="value" id="hud-complexity">-</span></div>
+      <div class="metric"><span class="label">Current Cluster:</span> <span class="value" id="hud-cluster">-</span></div>
+      <div class="metric" style="color:#9aa4b2; font-size:9px; margin-top:8px;">Snapshots: <span id="hud-snapshots">0</span></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ============================================
+  // 统一数据层
+  // ============================================
+  const dataLayer = {
+    // 状态
+    last: null,
+    graphSnapshot: null,
+    snapshotHistory: [],  // 用于ViewC的降维
+    
+    // WebSocket
+    ws: null,
+    reconnectDelay: 1000,
+    
+    // 回调
+    onSnapshot: null,
+    onUpdate: null,
+    
+    init() {
+      this.connect();
+    },
+    
+    connect() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.host}/ws`;
+      this.ws = new WebSocket(wsUrl);
+      
+      this.ws.onopen = () => {
+        console.log('[DataLayer] WebSocket connected');
+        const statusEl = document.getElementById('ws-status');
+        if (statusEl) statusEl.textContent = 'Connected';
+      };
+      
+      this.ws.onerror = (error) => {
+        console.error('[DataLayer] WebSocket error:', error);
+        const statusEl = document.getElementById('ws-status');
+        if (statusEl) statusEl.textContent = 'Error';
+      };
+      
+      this.ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data);
+          console.log('[DataLayer] Received message, has last:', !!msg.last);
+          
+          if (msg && msg.last) {
+            this.last = msg.last;
+            console.log('[DataLayer] last data:', {
+              t: msg.last.t,
+              cluster_id: msg.last.cluster_id,
+              complexity: msg.last.complexity,
+              has_graph_snapshot: !!msg.last.graph_snapshot
+            });
+            
+            // 如果有 graph_snapshot，更新
+            if (msg.last.graph_snapshot) {
+              this.graphSnapshot = msg.last.graph_snapshot;
+              this.snapshotHistory.push({
+                ...msg.last.graph_snapshot,
+                t: msg.last.t,
+                timestamp: Date.now()
+              });
+              
+              // 保持历史记录在合理范围（用于ViewC）
+              if (this.snapshotHistory.length > 500) {
+                this.snapshotHistory.shift();
+              }
+              
+              console.log(`[DataLayer] Received graph_snapshot @ t=${msg.last.t}, history=${this.snapshotHistory.length}`);
+              
+              if (this.onSnapshot) this.onSnapshot(this.graphSnapshot);
+            }
+            
+            // 每次更新都触发
+            if (this.onUpdate) this.onUpdate(this.last);
+            
+            // 更新HUD
+            this.updateHUD();
+          } else {
+            console.warn('[DataLayer] Message has no "last" field:', msg);
+          }
+        } catch(e) {
+          console.error('[DataLayer] Parse error:', e, 'Raw data:', ev.data);
+        }
+      };
+      
+      this.ws.onclose = () => {
+        console.log('[DataLayer] WebSocket closed, reconnecting...');
+        const statusEl = document.getElementById('ws-status');
+        if (statusEl) statusEl.textContent = 'Reconnecting...';
+        setTimeout(() => this.connect(), this.reconnectDelay);
+      };
+    },
+    
+    updateHUD() {
+      // 更新快照数量
+      const snapshotsEl = document.getElementById('hud-snapshots');
+      if (snapshotsEl) snapshotsEl.textContent = this.snapshotHistory.length;
+      
+      if (!this.last) {
+        console.warn('[DataLayer] updateHUD: no last data');
+        // 即使没有last，也尝试更新（可能显示默认值）
+        const complexityEl = document.getElementById('hud-complexity');
+        const clusterEl = document.getElementById('hud-cluster');
+        if (complexityEl) complexityEl.textContent = '-';
+        if (clusterEl) clusterEl.textContent = '-';
+        return;
+      }
+      
+      // 如果有graph_snapshot，使用最新值；否则保持上次值或显示 '-'
+      const h = this.graphSnapshot;
+      const activeEl = document.getElementById('hud-active');
+      const entropyEl = document.getElementById('hud-entropy');
+      const uniformityEl = document.getElementById('hud-uniformity');
+      
+      if (h) {
+        if (activeEl) activeEl.textContent = h.active_protocols || '-';
+        if (entropyEl) entropyEl.textContent = (h.transfer_entropy || 0).toFixed(3);
+        if (uniformityEl) uniformityEl.textContent = (h.uniformity || 0).toFixed(3);
+      } else {
+        // 没有graph_snapshot时，显示提示或保持上次值
+        if (activeEl && activeEl.textContent === '-') {
+          // 只在初始状态显示提示
+        }
+      }
+      
+      // 这些值每次更新都刷新（即使没有graph_snapshot）
+      const complexityEl = document.getElementById('hud-complexity');
+      const clusterEl = document.getElementById('hud-cluster');
+      
+      if (complexityEl) {
+        complexityEl.textContent = (this.last.complexity !== null && this.last.complexity !== undefined) 
+          ? this.last.complexity.toFixed(3) 
+          : '-';
+      }
+      if (clusterEl) {
+        clusterEl.textContent = 
+          this.last.cluster_id !== null && this.last.cluster_id !== undefined 
+            ? String(this.last.cluster_id)
+            : '-';
+      }
+      
+      console.log('[DataLayer] HUD updated:', {
+        complexity: this.last.complexity,
+        cluster_id: this.last.cluster_id,
+        has_snapshot: !!h
+      });
+    }
+  };
+  
+  // ============================================
+  // 视图切换
+  // ============================================
+  let currentView = 'A';
+  
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const viewId = tab.dataset.view;
+      switchView(viewId);
+    });
+  });
+  
+  function switchView(viewId) {
+    currentView = viewId;
+    
+    // 更新Tab样式
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`[data-view="${viewId}"]`).classList.add('active');
+    
+    // 更新视图显示
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById(`view${viewId}`).classList.add('active');
+    
+    // 初始化对应视图
+    initView(viewId);
+  }
+  
+  // ============================================
+  // 视图初始化占位
+  // ============================================
+  function initView(viewId) {
+    const container = document.getElementById(`view${viewId}`);
+    
+    if (viewId === 'A') {
+      initViewA(container);
+    } else if (viewId === 'B') {
+      initViewB(container);
+    } else if (viewId === 'C') {
+      initViewC(container);
+    }
+  }
+  
+  // ============================================
+  // View A: 3D Graph
+  // ============================================
+  let viewA = {
+    scene: null,
+    camera: null,
+    renderer: null,
+    nodes: [],  // {mesh, data, velocity}
+    edges: [],  // {line, from, to, weight}
+    currentClusterId: null,
+    forceRelaxation: false,
+    relaxationTime: 0,
+    pulseEdges: new Set()
+  };
+  
+  function initViewA(container) {
+    // 清除等待提示
+    container.innerHTML = '<canvas id="canvas3d"></canvas><div class="waiting" id="viewA-waiting">Waiting for graph snapshot...</div>';
+    
+    // 等待Three.js加载
+    if (typeof THREE === 'undefined') {
+      const waitingEl = document.getElementById('viewA-waiting');
+      if (waitingEl) waitingEl.textContent = 'Loading Three.js library...';
+      const checkThree = setInterval(() => {
+        if (typeof THREE !== 'undefined') {
+          clearInterval(checkThree);
+          const w = document.getElementById('viewA-waiting');
+          if (w) w.remove();
+          initViewA(container);
+        }
+      }, 100);
+      setTimeout(() => {
+        clearInterval(checkThree);
+        if (typeof THREE === 'undefined') {
+          const waitingEl = document.getElementById('viewA-waiting');
+          if (waitingEl) {
+            waitingEl.textContent = 'Error: Three.js failed to load. Please refresh.';
+            waitingEl.style.color = '#e74c3c';
+          }
+        }
+      }, 5000);
+      return;
+    }
+    
+    // Three.js已加载，移除等待提示
+    const waitingEl = document.getElementById('viewA-waiting');
+    if (waitingEl) waitingEl.textContent = 'Waiting for graph snapshot...';
+    
+    const canvas = document.getElementById('canvas3d');
+    if (!canvas) {
+      console.error('ViewA: Canvas not found');
+      return;
+    }
+    
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 600;
+    
+    if (width === 0 || height === 0) {
+      console.warn('ViewA: Container has zero size, retrying...');
+      setTimeout(() => initViewA(container), 100);
+      return;
+    }
+    
+    // 场景
+    viewA.scene = new THREE.Scene();
+    viewA.scene.background = new THREE.Color(0x05060a);
+    
+    // 相机
+    viewA.camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
+    viewA.camera.position.set(0, 0, 15);
+    
+    // 渲染器
+    viewA.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    viewA.renderer.setSize(width, height);
+    viewA.renderer.setPixelRatio(window.devicePixelRatio);
+    
+    // 轨道控制器（简化版，用鼠标拖拽）
+    let isDragging = false;
+    let previousMousePosition = { x: 0, y: 0 };
+    let rotation = { x: 0, y: 0 };
+    
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const deltaX = e.clientX - previousMousePosition.x;
+        const deltaY = e.clientY - previousMousePosition.y;
+        rotation.y += deltaX * 0.01;
+        rotation.x += deltaY * 0.01;
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => { isDragging = false; });
+    canvas.addEventListener('mouseleave', () => { isDragging = false; });
+    
+    // 滚轮缩放
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      viewA.camera.position.z += e.deltaY * 0.01;
+      viewA.camera.position.z = Math.max(5, Math.min(50, viewA.camera.position.z));
+    });
+    
+    // 双击聚焦当前节点
+    canvas.addEventListener('dblclick', () => {
+      if (viewA.currentClusterId !== null && viewA.nodes[viewA.currentClusterId]) {
+        const node = viewA.nodes[viewA.currentClusterId];
+        const pos = node.mesh.position;
+        // 平滑移动到节点位置
+        animateCameraTo(pos.x, pos.y, pos.z + 5);
+      }
+    });
+    
+    // 动画循环
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      // 更新旋转
+      if (!isDragging) {
+        rotation.y += 0.002;
+      }
+      
+      // 应用旋转
+      viewA.scene.rotation.x = rotation.x;
+      viewA.scene.rotation.y = rotation.y;
+      
+      // Force-directed布局更新
+      if (viewA.nodes.length > 0) {
+        updateForceLayout();
+      }
+      
+      // 更新脉冲效果
+      updatePulses();
+      
+      viewA.renderer.render(viewA.scene, viewA.camera);
+    }
+    
+    animate();
+    
+    // 窗口大小调整
+    window.addEventListener('resize', () => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      viewA.camera.aspect = w / h;
+      viewA.camera.updateProjectionMatrix();
+      viewA.renderer.setSize(w, h);
+    });
+  }
+  
+  function animateCameraTo(x, y, z) {
+    // 简单的相机动画（可以用更平滑的缓动）
+    const start = { x: viewA.camera.position.x, y: viewA.camera.position.y, z: viewA.camera.position.z };
+    const duration = 1000;
+    const startTime = Date.now();
+    
+    function update() {
+      const elapsed = Date.now() - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const ease = t * (2 - t); // ease-out
+      
+      viewA.camera.position.x = start.x + (x - start.x) * ease;
+      viewA.camera.position.y = start.y + (y - start.y) * ease;
+      viewA.camera.position.z = start.z + (z - start.z) * ease;
+      
+      if (t < 1) {
+        requestAnimationFrame(update);
+      }
+    }
+    update();
+  }
+  
+  function updateForceLayout() {
+    if (viewA.forceRelaxation && viewA.relaxationTime < 1.0) {
+      viewA.relaxationTime += 0.02; // 约50帧完成
+    } else if (viewA.forceRelaxation) {
+      viewA.forceRelaxation = false;
+      viewA.relaxationTime = 0;
+    }
+    
+    // 简化的力导向布局（弹簧模型）
+    const k = 0.1; // 弹簧常数
+    const damping = 0.9; // 阻尼
+    
+    // 节点间斥力
+    for (let i = 0; i < viewA.nodes.length; i++) {
+      for (let j = i + 1; j < viewA.nodes.length; j++) {
+        const nodeA = viewA.nodes[i];
+        const nodeB = viewA.nodes[j];
+        const dx = nodeB.mesh.position.x - nodeA.mesh.position.x;
+        const dy = nodeB.mesh.position.y - nodeA.mesh.position.y;
+        const dz = nodeB.mesh.position.z - nodeA.mesh.position.z;
+        const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) || 0.1;
+        const force = k / (dist * dist);
+        
+        const fx = (dx / dist) * force;
+        const fy = (dy / dist) * force;
+        const fz = (dz / dist) * force;
+        
+        nodeA.velocity.x -= fx * 0.1;
+        nodeA.velocity.y -= fy * 0.1;
+        nodeA.velocity.z -= fz * 0.1;
+        nodeB.velocity.x += fx * 0.1;
+        nodeB.velocity.y += fy * 0.1;
+        nodeB.velocity.z += fz * 0.1;
+      }
+    }
+    
+    // 边的吸引力
+    for (const edge of viewA.edges) {
+      const from = viewA.nodes[edge.from];
+      const to = viewA.nodes[edge.to];
+      if (!from || !to) continue;
+      
+      const dx = to.mesh.position.x - from.mesh.position.x;
+      const dy = to.mesh.position.y - from.mesh.position.y;
+      const dz = to.mesh.position.z - from.mesh.position.z;
+      const dist = Math.sqrt(dx*dx + dy*dy + dz*dz) || 0.1;
+      const targetDist = 3 + edge.weight * 2; // 边权重影响目标距离
+      const diff = dist - targetDist;
+      const force = diff * 0.05;
+      
+      const fx = (dx / dist) * force;
+      const fy = (dy / dist) * force;
+      const fz = (dz / dist) * force;
+      
+      from.velocity.x += fx;
+      from.velocity.y += fy;
+      from.velocity.z += fz;
+      to.velocity.x -= fx;
+      to.velocity.y -= fy;
+      to.velocity.z -= fz;
+    }
+    
+    // 更新节点位置
+    for (const node of viewA.nodes) {
+      node.velocity.x *= damping;
+      node.velocity.y *= damping;
+      node.velocity.z *= damping;
+      
+      node.mesh.position.x += node.velocity.x;
+      node.mesh.position.y += node.velocity.y;
+      node.mesh.position.z += node.velocity.z;
+      
+      // 更新边的位置
+      updateEdgePositions(node);
+    }
+  }
+  
+  function updateEdgePositions(node) {
+    const nodeIndex = viewA.nodes.indexOf(node);
+    for (const edge of viewA.edges) {
+      if (edge.from === nodeIndex || edge.to === nodeIndex) {
+        const from = viewA.nodes[edge.from];
+        const to = viewA.nodes[edge.to];
+        if (from && to) {
+          // 更新TubeGeometry的曲线
+          const curve = new THREE.CatmullRomCurve3([
+            from.mesh.position,
+            to.mesh.position
+          ]);
+          edge.line.geometry.dispose();
+          edge.line.geometry = new THREE.TubeGeometry(curve, 8, edge.tubeRadius, 8, false);
+        }
+      }
+    }
+  }
+  
+  function updatePulses() {
+    const now = Date.now();
+    for (const edgeId of viewA.pulseEdges) {
+      const edge = viewA.edges.find(e => e.id === edgeId);
+      if (edge && edge.pulseStart) {
+        const age = (now - edge.pulseStart) / 500; // 500ms脉冲
+        if (age > 1) {
+          edge.line.material.opacity = edge.originalOpacity;
+          edge.line.material.emissiveIntensity = 0.3;
+          viewA.pulseEdges.delete(edgeId);
+        } else {
+          edge.line.material.opacity = edge.originalOpacity + (1 - age) * 0.5;
+          edge.line.material.emissiveIntensity = 0.3 + (1 - age) * 0.7;
+          edge.line.material.needsUpdate = true;
+        }
+      }
+    }
+  }
+  
+  function updateViewA(snapshot) {
+    if (typeof THREE === 'undefined') {
+      console.warn('ViewA: Three.js not loaded');
+      return;
+    }
+    
+    if (!viewA.scene) {
+      console.warn('ViewA: Scene not initialized, reinitializing...');
+      const container = document.getElementById('viewA');
+      if (container) {
+        initViewA(container);
+      }
+      return;
+    }
+    
+    // 移除等待提示
+    const waitingEl = document.getElementById('viewA-waiting');
+    if (waitingEl) waitingEl.remove();
+    
+    const n = snapshot.n_clusters;
+    const counts = snapshot.counts;
+    const transitionMatrix = snapshot.transition_matrix;
+    const transitionProb = snapshot.transition_prob;
+    const totalCount = counts.reduce((a, b) => a + b, 0);
+    
+    // 清除旧节点和边
+    for (const node of viewA.nodes) {
+      viewA.scene.remove(node.mesh);
+    }
+    for (const edge of viewA.edges) {
+      viewA.scene.remove(edge.line);
+    }
+    viewA.nodes = [];
+    viewA.edges = [];
+    
+    // 创建节点
+    const colors = [
+      0x4a90e2, 0x50c878, 0xf39c12, 0xe74c3c, 0x9b59b6,
+      0x1abc9c, 0x3498db, 0xe67e22, 0xc0392b, 0x8e44ad
+    ];
+    
+    for (let i = 0; i < n; i++) {
+      const occupancy = totalCount > 0 ? counts[i] / totalCount : 0;
+      const radius = 0.3 + occupancy * 0.7; // 半径∝occupancy
+      const color = colors[i % colors.length];
+      
+      const geometry = new THREE.SphereGeometry(radius, 16, 16);
+      const material = new THREE.MeshPhongMaterial({ 
+        color,
+        emissive: color,
+        emissiveIntensity: 0.2
+      });
+      const mesh = new THREE.Mesh(geometry, material);
+      
+      // 随机初始位置
+      mesh.position.set(
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10,
+        (Math.random() - 0.5) * 10
+      );
+      
+      viewA.scene.add(mesh);
+      
+      viewA.nodes.push({
+        mesh,
+        data: { id: i, occupancy, counts: counts[i] },
+        velocity: { x: 0, y: 0, z: 0 }
+      });
+    }
+    
+    // 创建边
+    let edgeId = 0;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const weight = transitionMatrix[i][j];
+        const prob = transitionProb[i][j];
+        
+        if (weight > 0) {
+          const from = viewA.nodes[i];
+          const to = viewA.nodes[j];
+          
+          const geometry = new THREE.BufferGeometry().setFromPoints([
+            from.mesh.position,
+            to.mesh.position
+          ]);
+          
+          const brightness = 0.3 + prob * 0.7; // 亮度∝probability
+          const color = new THREE.Color(0xffffff).multiplyScalar(brightness);
+          
+          // 使用TubeGeometry实现粗细效果
+          const tubeRadius = 0.02 + prob * 0.08;
+          const tubeGeometry = new THREE.TubeGeometry(
+            new THREE.CatmullRomCurve3([
+              from.mesh.position,
+              to.mesh.position
+            ]),
+            8, // segments
+            tubeRadius,
+            8, // radiusSegments
+            false // closed
+          );
+          
+          const material = new THREE.MeshPhongMaterial({
+            color,
+            opacity: 0.6,
+            transparent: true,
+            emissive: color,
+            emissiveIntensity: 0.3
+          });
+          
+          const line = new THREE.Mesh(tubeGeometry, material);
+          
+          viewA.scene.add(line);
+          
+          viewA.edges.push({
+            id: edgeId++,
+            line,
+            from: i,
+            to: j,
+            weight,
+            prob,
+            tubeRadius,
+            originalOpacity: 0.6,
+            pulseStart: null
+          });
+        }
+      }
+    }
+    
+    // 添加光源
+    if (viewA.scene.children.filter(c => c instanceof THREE.Light).length === 0) {
+      const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+      viewA.scene.add(ambientLight);
+      
+      const pointLight = new THREE.PointLight(0xffffff, 1);
+      pointLight.position.set(10, 10, 10);
+      viewA.scene.add(pointLight);
+    }
+    
+    // 触发force relaxation
+    viewA.forceRelaxation = true;
+    viewA.relaxationTime = 0;
+  }
+  
+  function updateViewAHighlight(last) {
+    if (!viewA.scene || viewA.nodes.length === 0) return;
+    
+    const clusterId = last.cluster_id;
+    if (clusterId === null || clusterId === undefined) return;
+    
+    viewA.currentClusterId = clusterId;
+    
+    // 更新节点高亮
+    for (let i = 0; i < viewA.nodes.length; i++) {
+      const node = viewA.nodes[i];
+      const isCurrent = i === clusterId;
+      
+      // 高亮效果：增加emissive和描边
+      if (isCurrent) {
+        node.mesh.material.emissiveIntensity = 0.8;
+        node.mesh.material.emissive.setHex(0xffffff);
+        node.mesh.scale.set(1.2, 1.2, 1.2);
+      } else {
+        node.mesh.material.emissiveIntensity = 0.2;
+        const colors = [0x4a90e2, 0x50c878, 0xf39c12, 0xe74c3c, 0x9b59b6];
+        node.mesh.material.emissive.setHex(colors[i % colors.length]);
+        node.mesh.scale.set(1.0, 1.0, 1.0);
+      }
+      node.mesh.material.needsUpdate = true;
+    }
+    
+    // 从当前节点发出的边脉冲（由matches触发）
+    if (last.matches > 0) {
+      const pulseCount = Math.min(3, last.matches);
+      const outgoingEdges = viewA.edges.filter(e => e.from === clusterId);
+      
+      for (let i = 0; i < Math.min(pulseCount, outgoingEdges.length); i++) {
+        const edge = outgoingEdges[Math.floor(Math.random() * outgoingEdges.length)];
+        edge.pulseStart = Date.now();
+        viewA.pulseEdges.add(edge.id);
+      }
+    }
+  }
+  
+  // ============================================
+  // View B: Lineage Wall
+  // ============================================
+  let viewB = {
+    container: null,
+    leftNetwork: null,
+    rightWall: null,
+    cards: [],
+    networkCanvas: null,
+    networkCtx: null,
+    currentSnapshot: null,
+    currentClusterId: null
+  };
+  
+  function initViewB(container) {
+    viewB.container = container;
+    container.innerHTML = `
+      <div style="display:flex; width:100%; height:100%;">
+        <div id="viewB-left" style="width:40%; border-right:1px solid #2a2b2f; position:relative;">
+          <canvas id="viewB-network" style="width:100%; height:100%;"></canvas>
+        </div>
+        <div id="viewB-right" style="flex:1; overflow-y:auto; padding:12px;">
+          <div id="viewB-wall" style="display:flex; flex-direction:column; gap:8px;"></div>
+        </div>
+      </div>
+    `;
+    
+    // 初始化左侧网络Canvas
+    const networkCanvas = document.getElementById('viewB-network');
+    viewB.networkCanvas = networkCanvas;
+    viewB.networkCtx = networkCanvas.getContext('2d');
+    
+    const leftDiv = document.getElementById('viewB-left');
+    function resizeNetwork() {
+      networkCanvas.width = leftDiv.clientWidth;
+      networkCanvas.height = leftDiv.clientHeight;
+      if (viewB.currentSnapshot) {
+        drawNetwork2D(viewB.currentSnapshot);
+      }
+    }
+    resizeNetwork();
+    window.addEventListener('resize', resizeNetwork);
+    
+    viewB.rightWall = document.getElementById('viewB-wall');
+  }
+  
+  function drawNetwork2D(snapshot) {
+    if (!viewB.networkCtx || !snapshot) return;
+    
+    const ctx = viewB.networkCtx;
+    const w = viewB.networkCanvas.width;
+    const h = viewB.networkCanvas.height;
+    
+    ctx.clearRect(0, 0, w, h);
+    
+    const n = snapshot.n_clusters;
+    const counts = snapshot.counts;
+    const transitionProb = snapshot.transition_prob;
+    const totalCount = counts.reduce((a, b) => a + b, 0);
+    
+    // 节点位置（圆形布局）
+    const centerX = w / 2;
+    const centerY = h / 2;
+    const radius = Math.min(w, h) * 0.3;
+    const nodes = [];
+    
+    for (let i = 0; i < n; i++) {
+      const angle = (i / n) * Math.PI * 2;
+      const x = centerX + Math.cos(angle) * radius;
+      const y = centerY + Math.sin(angle) * radius;
+      const occupancy = totalCount > 0 ? counts[i] / totalCount : 0;
+      const nodeRadius = 8 + occupancy * 20;
+      
+      nodes.push({ x, y, radius: nodeRadius, id: i, occupancy });
+    }
+    
+    // 绘制边
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const prob = transitionProb[i][j];
+        if (prob > 0.1) {
+          ctx.globalAlpha = prob;
+          ctx.beginPath();
+          ctx.moveTo(nodes[i].x, nodes[i].y);
+          ctx.lineTo(nodes[j].x, nodes[j].y);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+    
+    // 绘制节点
+    const colors = ['#4a90e2', '#50c878', '#f39c12', '#e74c3c', '#9b59b6'];
+    for (const node of nodes) {
+      ctx.fillStyle = colors[node.id % colors.length];
+      ctx.beginPath();
+      ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 高亮当前节点
+      if (viewB.currentClusterId === node.id) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+  }
+  
+  function createSnapshotCard(snapshot, t, volatility, matches) {
+    const card = document.createElement('div');
+    card.style.cssText = `
+      background:#15161a;
+      border:2px solid #2a2b2f;
+      border-radius:6px;
+      padding:12px;
+      min-height:120px;
+      position:relative;
+      transition:transform 0.3s, border-color 0.3s;
+    `;
+    
+    // 事件标记
+    if (volatility > 0.7 || matches > 20) {
+      card.style.borderColor = '#f39c12';
+      const marker = document.createElement('div');
+      marker.style.cssText = `
+        position:absolute;
+        top:8px;
+        right:8px;
+        width:8px;
+        height:8px;
+        background:#f39c12;
+        border-radius:50%;
+        box-shadow:0 0 8px #f39c12;
+      `;
+      card.appendChild(marker);
+    }
+    
+    // 结构指纹：KxK转移矩阵热力图
+    const heatmapSize = 60;
+    const canvas = document.createElement('canvas');
+    canvas.width = heatmapSize;
+    canvas.height = heatmapSize;
+    const ctx = canvas.getContext('2d');
+    
+    const n = snapshot.n_clusters;
+    const transitionProb = snapshot.transition_prob;
+    const cellSize = heatmapSize / n;
+    
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const prob = transitionProb[i][j];
+        const intensity = Math.floor(prob * 255);
+        ctx.fillStyle = `rgb(${intensity}, ${intensity}, ${intensity})`;
+        ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+      }
+    }
+    
+    canvas.style.cssText = 'width:60px; height:60px; image-rendering:pixelated;';
+    
+    // 卡片内容
+    card.innerHTML = `
+      <div style="display:flex; gap:12px; align-items:start;">
+        <div>${canvas.outerHTML}</div>
+        <div style="flex:1;">
+          <div style="font-size:10px; color:#9aa4b2; margin-bottom:4px;">t=${t}</div>
+          <div style="display:flex; gap:12px; font-size:11px;">
+            <div>
+              <span style="color:#9aa4b2;">Protocols:</span>
+              <span style="color:#e0e0e0;">${snapshot.active_protocols}/${snapshot.n_clusters}</span>
+            </div>
+            <div>
+              <span style="color:#9aa4b2;">Entropy:</span>
+              <span style="color:#e0e0e0;">${snapshot.transfer_entropy.toFixed(2)}</span>
+            </div>
+            <div>
+              <span style="color:#9aa4b2;">Uniformity:</span>
+              <span style="color:#e0e0e0;">${snapshot.uniformity.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // 当active_protocols变化时，边框颜色变化
+    if (viewB.cards.length > 0) {
+      const lastCard = viewB.cards[viewB.cards.length - 1];
+      const lastSnapshot = lastCard.snapshot;
+      if (snapshot.active_protocols !== lastSnapshot.active_protocols) {
+        card.style.borderColor = '#50c878';
+      }
+    }
+    
+    return { element: card, snapshot, t };
+  }
+  
+  function updateViewB(snapshot) {
+    viewB.currentSnapshot = snapshot;
+    
+    // 移除等待提示
+    const waitingEl = viewB.container?.querySelector('.waiting');
+    if (waitingEl) waitingEl.remove();
+    
+    // 更新左侧网络
+    drawNetwork2D(snapshot);
+    
+    // 获取当前数据
+    const last = dataLayer.last;
+    if (!last) return;
+    
+    // 创建新卡片
+    const card = createSnapshotCard(
+      snapshot,
+      last.t,
+      last.volatility || 0,
+      last.matches || 0
+    );
+    
+    // 添加到时间墙顶部
+    viewB.rightWall.insertBefore(card.element, viewB.rightWall.firstChild);
+    viewB.cards.unshift(card);
+    
+    // 限制卡片数量
+    if (viewB.cards.length > 50) {
+      const oldCard = viewB.cards.pop();
+      oldCard.element.remove();
+    }
+  }
+  
+  function updateViewBHighlight(last) {
+    viewB.currentClusterId = last.cluster_id;
+    if (viewB.currentSnapshot) {
+      drawNetwork2D(viewB.currentSnapshot);
+    }
+  }
+  
+  // ============================================
+  // View C: Embedding Cloud
+  // ============================================
+  let viewC = {
+    canvas: null,
+    ctx: null,
+    points: [],  // {x, y, snapshot, t, size, color}
+    tail: [],    // 尾迹点
+    hoverPoint: null,
+    pca: null
+  };
+  
+  function initViewC(container) {
+    // 清除等待提示
+    container.innerHTML = '<canvas id="viewC-canvas" style="width:100%; height:100%; cursor:crosshair;"></canvas>';
+    
+    const canvas = document.getElementById('viewC-canvas');
+    if (!canvas) {
+      console.error('ViewC: Canvas not found');
+      return;
+    }
+    
+    viewC.canvas = canvas;
+    viewC.ctx = canvas.getContext('2d');
+    
+    function resize() {
+      const w = container.clientWidth || 800;
+      const h = container.clientHeight || 600;
+      if (w === 0 || h === 0) {
+        console.warn('ViewC: Container has zero size');
+        return;
+      }
+      canvas.width = w;
+      canvas.height = h;
+      renderViewC();
+    }
+    
+    // 延迟初始化，确保容器已渲染
+    setTimeout(() => {
+      resize();
+      window.addEventListener('resize', resize);
+    }, 100);
+    
+    // Hover检测
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      viewC.hoverPoint = null;
+      for (const point of viewC.points) {
+        const dx = point.x - x;
+        const dy = point.y - y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 10) {
+          viewC.hoverPoint = point;
+          break;
+        }
+      }
+      renderViewC();
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      viewC.hoverPoint = null;
+      renderViewC();
+    });
+  }
+  
+  // 简化的PCA降维（2D）
+  function computePCA(vectors) {
+    if (vectors.length < 2) return null;
+    
+    const n = vectors.length;
+    const dim = vectors[0].length;
+    
+    // 中心化
+    const mean = new Array(dim).fill(0);
+    for (const v of vectors) {
+      for (let i = 0; i < dim; i++) {
+        mean[i] += v[i];
+      }
+    }
+    for (let i = 0; i < dim; i++) {
+      mean[i] /= n;
+    }
+    
+    const centered = vectors.map(v => v.map((x, i) => x - mean[i]));
+    
+    // 协方差矩阵
+    const cov = [];
+    for (let i = 0; i < dim; i++) {
+      cov[i] = [];
+      for (let j = 0; j < dim; j++) {
+        let sum = 0;
+        for (let k = 0; k < n; k++) {
+          sum += centered[k][i] * centered[k][j];
+        }
+        cov[i][j] = sum / (n - 1);
+      }
+    }
+    
+    // 简化的特征值分解（只取前2个主成分）
+    // 使用幂迭代法近似
+    let v1 = new Array(dim).fill(1).map(() => Math.random());
+    let v2 = new Array(dim).fill(1).map(() => Math.random());
+    
+    // 归一化
+    const normalize = (v) => {
+      const len = Math.sqrt(v.reduce((s, x) => s + x*x, 0));
+      return v.map(x => x / len);
+    };
+    
+    // 迭代几次
+    for (let iter = 0; iter < 10; iter++) {
+      // v1 = cov * v1
+      const newV1 = new Array(dim).fill(0);
+      for (let i = 0; i < dim; i++) {
+        for (let j = 0; j < dim; j++) {
+          newV1[i] += cov[i][j] * v1[j];
+        }
+      }
+      v1 = normalize(newV1);
+      
+      // v2 = cov * v2 - (v2·v1) * v1 (正交化)
+      const newV2 = new Array(dim).fill(0);
+      for (let i = 0; i < dim; i++) {
+        for (let j = 0; j < dim; j++) {
+          newV2[i] += cov[i][j] * v2[j];
+        }
+      }
+      const dot = v2.reduce((s, x, i) => s + x * v1[i], 0);
+      for (let i = 0; i < dim; i++) {
+        newV2[i] -= dot * v1[i];
+      }
+      v2 = normalize(newV2);
+    }
+    
+    return { pc1: v1, pc2: v2, mean };
+  }
+  
+  function snapshotToVector(snapshot) {
+    // v = flatten(transition_matrix) + counts + [protocol_score, transfer_entropy, uniformity]
+    const n = snapshot.n_clusters;
+    const vec = [];
+    
+    // transition_matrix (flatten)
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        vec.push(snapshot.transition_matrix[i][j] || 0);
+      }
+    }
+    
+    // counts
+    for (let i = 0; i < n; i++) {
+      vec.push(snapshot.counts[i] || 0);
+    }
+    
+    // 指标
+    vec.push(snapshot.protocol_score || 0);
+    vec.push(snapshot.transfer_entropy || 0);
+    vec.push(snapshot.uniformity || 0);
+    
+    return vec;
+  }
+  
+  function projectTo2D(vector, pca) {
+    if (!pca) return { x: 0, y: 0 };
+    
+    const centered = vector.map((x, i) => x - (pca.mean[i] || 0));
+    const x = centered.reduce((s, v, i) => s + v * pca.pc1[i], 0);
+    const y = centered.reduce((s, v, i) => s + v * pca.pc2[i], 0);
+    
+    return { x, y };
+  }
+  
+  function updateViewC(snapshot) {
+    if (!viewC.canvas || !viewC.ctx) {
+      console.warn('ViewC: Canvas not initialized');
+      return;
+    }
+    
+    console.log(`[ViewC] updateViewC called, snapshotHistory.length=${dataLayer.snapshotHistory.length}`);
+    
+    // 限制历史记录数量
+    const maxHistory = 200;
+    if (dataLayer.snapshotHistory.length > maxHistory) {
+      dataLayer.snapshotHistory = dataLayer.snapshotHistory.slice(-maxHistory);
+    }
+    
+    // 如果历史记录少于2个，无法计算PCA，显示等待信息
+    if (dataLayer.snapshotHistory.length < 2) {
+      renderViewC();
+      return;
+    }
+    
+    // 每N个快照重新计算PCA（N=5），或如果还没有PCA且数据足够
+    const shouldRecalcPCA = (dataLayer.snapshotHistory.length % 5 === 0 || !viewC.pca) && dataLayer.snapshotHistory.length >= 2;
+    
+    if (shouldRecalcPCA) {
+      // 转换为向量
+      const vectors = dataLayer.snapshotHistory.map(s => snapshotToVector(s));
+      
+      // 计算PCA（至少需要2个点）
+      if (vectors.length >= 2) {
+        viewC.pca = computePCA(vectors);
+      }
+    }
+    
+    // 如果没有PCA，使用简单的2D布局（基于时间）
+    if (!viewC.pca) {
+      viewC.points = [];
+      const w = viewC.canvas.width || 800;
+      const h = viewC.canvas.height || 600;
+      
+      for (let i = 0; i < dataLayer.snapshotHistory.length; i++) {
+        const hist = dataLayer.snapshotHistory[i];
+        // 简单布局：x = 时间，y = complexity
+        const x = (i / Math.max(1, dataLayer.snapshotHistory.length - 1)) * (w - 40) + 20;
+        const y = (1 - (hist.transfer_entropy || 0.5)) * (h - 40) + 20;
+        
+        const size = 2 + hist.active_protocols * 1.5;
+        const complexity = hist.transfer_entropy || 0.5;
+        const hue = complexity * 240;
+        const color = `hsl(${hue}, 70%, 60%)`;
+        
+        viewC.points.push({
+          x, y, snapshot: hist, t: hist.t,
+          size, color, complexity
+        });
+      }
+      
+      viewC.tail = viewC.points.slice(-30);
+      renderViewC();
+      return;
+    }
+    
+    // 投影所有点
+    viewC.points = [];
+    
+    // 先计算所有投影，找到范围
+    const projections = [];
+    for (const hist of dataLayer.snapshotHistory) {
+      const vec = snapshotToVector(hist);
+      const proj = projectTo2D(vec, viewC.pca);
+      projections.push(proj);
+    }
+    
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    for (const proj of projections) {
+      minX = Math.min(minX, proj.x);
+      maxX = Math.max(maxX, proj.x);
+      minY = Math.min(minY, proj.y);
+      maxY = Math.max(maxY, proj.y);
+    }
+    
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
+    
+    console.log('[ViewC] PCA projection range:', {
+      minX, maxX, rangeX,
+      minY, maxY, rangeY,
+      pointCount: projections.length
+    });
+    
+    // 如果范围太小（所有点几乎相同），使用简单布局
+    if (Math.abs(rangeX) < 1e-6 || Math.abs(rangeY) < 1e-6) {
+      console.warn('[ViewC] PCA projection range too small, using simple layout');
+      viewC.points = [];
+      const w = viewC.canvas.width || 800;
+      const h = viewC.canvas.height || 600;
+      
+      for (let i = 0; i < dataLayer.snapshotHistory.length; i++) {
+        const hist = dataLayer.snapshotHistory[i];
+        // 使用时间和entropy的简单布局
+        const x = (i / Math.max(1, dataLayer.snapshotHistory.length - 1)) * (w - 40) + 20;
+        const y = (1 - (hist.transfer_entropy || 0.5)) * (h - 40) + 20;
+        
+        const size = 2 + hist.active_protocols * 1.5;
+        const complexity = hist.transfer_entropy || 0.5;
+        const hue = complexity * 240;
+        const color = `hsl(${hue}, 70%, 60%)`;
+        
+        viewC.points.push({
+          x, y, snapshot: hist, t: hist.t,
+          size, color, complexity
+        });
+      }
+      
+      viewC.tail = viewC.points.slice(-30);
+      renderViewC();
+      return;
+    }
+    
+    const w = viewC.canvas.width || 800;
+    const h = viewC.canvas.height || 600;
+    
+    // 创建点（添加一些padding避免点贴边）
+    const padding = 40;
+    const plotW = w - padding * 2;
+    const plotH = h - padding * 2;
+    
+    for (let i = 0; i < dataLayer.snapshotHistory.length; i++) {
+      const hist = dataLayer.snapshotHistory[i];
+      const proj = projections[i];
+      
+      // 归一化到[0,1]，然后映射到canvas坐标
+      const normalizedX = (proj.x - minX) / rangeX;
+      const normalizedY = (proj.y - minY) / rangeY;
+      
+      const x = padding + normalizedX * plotW;
+      const y = padding + normalizedY * plotH;
+      
+      const size = 2 + hist.active_protocols * 1.5;
+      const complexity = dataLayer.last?.complexity || hist.transfer_entropy || 0.5;
+      const hue = complexity * 240; // 0-240 (blue to red)
+      const color = `hsl(${hue}, 70%, 60%)`;
+      
+      viewC.points.push({
+        x, y, snapshot: hist, t: hist.t,
+        size, color, complexity
+      });
+    }
+    
+    // 更新尾迹（最近30个点）
+    viewC.tail = viewC.points.slice(-30);
+    
+    renderViewC();
+  }
+  
+  function renderViewC() {
+    if (!viewC.ctx || !viewC.canvas) return;
+    
+    const ctx = viewC.ctx;
+    const w = viewC.canvas.width || 800;
+    const h = viewC.canvas.height || 600;
+    
+    ctx.fillStyle = '#05060a';
+    ctx.fillRect(0, 0, w, h);
+    
+    if (viewC.points.length === 0) {
+      // 显示等待提示
+      ctx.fillStyle = '#6a7a8a';
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'center';
+      const count = dataLayer.snapshotHistory.length;
+      ctx.fillText(`Waiting for graph snapshot... (${count} received)`, w / 2, h / 2);
+      
+      if (count === 0) {
+        ctx.fillText('graph_snapshot is sent every 500 ticks', w / 2, h / 2 + 20);
+        ctx.fillText('Current tick: ' + (dataLayer.last?.t || 'unknown'), w / 2, h / 2 + 40);
+        const nextSnapshot = dataLayer.last?.t ? Math.ceil((dataLayer.last.t + 1) / 500) * 500 : 'unknown';
+        ctx.fillText('Next snapshot at: t=' + nextSnapshot, w / 2, h / 2 + 60);
+      } else if (count < 2) {
+        ctx.fillText('Need at least 2 snapshots for PCA visualization', w / 2, h / 2 + 20);
+      }
+      return;
+    }
+    
+    // 绘制点云（从旧到新，新点在上）
+    console.log('[ViewC] Rendering', viewC.points.length, 'points');
+    
+    for (let i = 0; i < viewC.points.length; i++) {
+      const point = viewC.points[i];
+      const isCurrent = i === viewC.points.length - 1;
+      const isHover = viewC.hoverPoint === point;
+      
+      // 调试：打印前几个点的位置
+      if (i < 3) {
+        console.log(`[ViewC] Point ${i}: x=${point.x.toFixed(1)}, y=${point.y.toFixed(1)}, size=${point.size.toFixed(1)}`);
+      }
+      
+      ctx.fillStyle = point.color;
+      ctx.globalAlpha = isCurrent ? 1.0 : 0.6;
+      
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // 当前点高亮
+      if (isCurrent) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.globalAlpha = 1.0;
+        ctx.stroke();
+      }
+      
+      // Hover效果
+      if (isHover) {
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 1.0;
+        ctx.stroke();
+        
+        // 显示mini指纹
+        drawMiniFingerprint(point.snapshot, point.x, point.y);
+      }
+    }
+    
+    // 绘制尾迹
+    if (viewC.tail.length > 1) {
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.moveTo(viewC.tail[0].x, viewC.tail[0].y);
+      for (let i = 1; i < viewC.tail.length; i++) {
+        ctx.lineTo(viewC.tail[i].x, viewC.tail[i].y);
+        ctx.globalAlpha = 0.3 * (i / viewC.tail.length);
+      }
+      ctx.stroke();
+    }
+    
+    ctx.globalAlpha = 1.0;
+  }
+  
+  function drawMiniFingerprint(snapshot, x, y) {
+    const ctx = viewC.ctx;
+    const size = 40;
+    
+    ctx.fillStyle = 'rgba(20, 20, 30, 0.9)';
+    ctx.fillRect(x + 15, y - size - 5, size + 10, size + 20);
+    
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x + 15, y - size - 5, size + 10, size + 20);
+    
+    // 小热力图
+    const n = snapshot.n_clusters;
+    const cellSize = size / n;
+    const transitionProb = snapshot.transition_prob;
+    
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        const prob = transitionProb[i][j];
+        const intensity = Math.floor(prob * 255);
+        ctx.fillStyle = `rgb(${intensity}, ${intensity}, ${intensity})`;
+        ctx.fillRect(x + 20 + j * cellSize, y - size + i * cellSize, cellSize, cellSize);
+      }
+    }
+    
+    // 文字
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '10px monospace';
+    ctx.fillText(`t=${snapshot.t}`, x + 20, y - size + size + 12);
+  }
+  
+  function updateViewCHighlight(last) {
+    // ViewC的高亮在renderViewC中处理
+    renderViewC();
+  }
+  
+  // ============================================
+  // 启动
+  // ============================================
+  dataLayer.onSnapshot = (snapshot) => {
+    // 当收到快照时，更新当前视图
+    if (currentView === 'A') {
+      updateViewA(snapshot);
+    } else if (currentView === 'B') {
+      updateViewB(snapshot);
+      updateViewBHighlight(dataLayer.last);
+    } else if (currentView === 'C') {
+      updateViewC(snapshot);
+    }
+  };
+  
+    dataLayer.onUpdate = (last) => {
+    // 每次更新时，更新当前视图的高亮等
+    if (currentView === 'A') {
+      updateViewAHighlight(last);
+    } else if (currentView === 'B') {
+      updateViewBHighlight(last);
+    } else if (currentView === 'C') {
+      updateViewCHighlight(last);
+    }
+  };
+  
+  // 初始化
+  console.log('[Init] Starting initialization...');
+  
+  // 确保DOM已加载
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      console.log('[Init] DOM loaded, initializing...');
+      dataLayer.init();
+      initView('A');
+      
+      // URL参数支持
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      if (viewParam && ['A', 'B', 'C'].includes(viewParam.toUpperCase())) {
+        switchView(viewParam.toUpperCase());
+      }
+    });
+  } else {
+    console.log('[Init] DOM already loaded, initializing...');
+    dataLayer.init();
+    initView('A');
+    
+    // URL参数支持
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewParam = urlParams.get('view');
+    if (viewParam && ['A', 'B', 'C'].includes(viewParam.toUpperCase())) {
+      switchView(viewParam.toUpperCase());
+    }
+  }
+  
+  console.log('[Init] Initialization complete');
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Infinite Game — Continuous World</title>
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <style>
+    body { font-family: sans-serif; margin: 16px; }
+    #top { display:flex; gap:12px; align-items:center; }
+    #charts { display:grid; grid-template-columns: 1fr; gap: 18px; margin-top: 14px; }
+    .chart { width: 100%; height: 380px; }
+    code { background:#f5f5f5; padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div id="top">
+    <h2 style="margin:0;">Infinite Game — Continuous World</h2>
+    <div>
+      Run:
+      <select id="runSelect"></select>
+      <button id="refreshRuns">Refresh</button>
+    </div>
+    <div>Auto-refresh: <code>1s</code></div>
+  </div>
+
+  <div id="charts">
+    <div id="chart1" class="chart"></div>
+    <div id="chart2" class="chart"></div>
+  </div>
+
+<script>
+async function fetchJSON(url){ const r=await fetch(url); return await r.json(); }
+
+let currentRun = null;
+
+async function loadRuns(){
+  const data = await fetchJSON('/api/runs');
+  const sel = document.getElementById('runSelect');
+  sel.innerHTML = '';
+  data.runs.forEach(r=>{
+    const opt=document.createElement('option');
+    opt.value=r; opt.textContent=r;
+    sel.appendChild(opt);
+  });
+  if(!currentRun && data.runs.length>0){
+    currentRun = data.runs[0];
+    sel.value = currentRun;
+  }
+}
+
+function initPlots(){
+  Plotly.newPlot('chart1', [
+    {x:[], y:[], name:'complexity'},
+    {x:[], y:[], name:'liquidity'},
+    {x:[], y:[], name:'avg_exp'},
+  ], {title:'Key Signals (windowed)', xaxis:{title:'t'}, yaxis:{title:'value'}}, {responsive:true});
+
+  Plotly.newPlot('chart2', [
+    {x:[], y:[], name:'N'},
+  ], {title:'Participation Intensity', xaxis:{title:'t'}, yaxis:{title:'N'}}, {responsive:true});
+}
+
+async function update(){
+  if(!currentRun) return;
+  try{
+    const stream = await fetchJSON(`/api/stream/${currentRun}`);
+    const w = stream.window || [];
+    const t = w.map(p=>p.t);
+    const c = w.map(p=>p.complexity);
+    const l = w.map(p=>p.liquidity);
+    const e = w.map(p=>p.avg_exp);
+    const n = w.map(p=>p.N);
+
+    Plotly.react('chart1', [
+      {x:t, y:c, name:'complexity'},
+      {x:t, y:l, name:'liquidity'},
+      {x:t, y:e, name:'avg_exp'},
+    ], {title:`Key Signals (run=${currentRun}, t=${stream.t})`, xaxis:{title:'t'}, yaxis:{title:'value'}}, {responsive:true});
+
+    Plotly.react('chart2', [
+      {x:t, y:n, name:'N'},
+    ], {title:`Participation Intensity (run=${currentRun})`, xaxis:{title:'t'}, yaxis:{title:'N'}}, {responsive:true});
+
+  }catch(err){
+    // stream 还没生成时会404，属于正常
+  }
+}
+
+document.getElementById('refreshRuns').onclick = async ()=>{
+  await loadRuns();
+};
+
+document.getElementById('runSelect').onchange = (e)=>{
+  currentRun = e.target.value;
+};
+
+(async ()=>{
+  await loadRuns();
+  initPlots();
+  setInterval(update, 1000);
+})();
+</script>
+</body>
+</html>

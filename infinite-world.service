@@ -1,0 +1,24 @@
+[Unit]
+Description=Infinite Game Continuous World (no tick limit)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/Infinite-Game-Research
+Environment=OMP_NUM_THREADS=1
+Environment=MKL_NUM_THREADS=1
+Environment=OPENBLAS_NUM_THREADS=1
+Environment=NUMEXPR_NUM_THREADS=1
+Environment=IG_RUN_DIR=runs/continuous_world
+Environment=IG_ADJUST_INTERVAL=2000
+Environment=IG_FLUSH_EVERY=20000
+Environment=IG_RING_SIZE=20000
+Environment=IG_DOWNSAMPLE=10
+ExecStart=/root/Infinite-Game-Research/.venv/bin/python /root/Infinite-Game-Research/lab/continuous/run_continuous_world.py
+Restart=always
+RestartSec=3
+StandardOutput=append:/root/Infinite-Game-Research/logs/infinite-world.out.log
+StandardError=append:/root/Infinite-Game-Research/logs/infinite-world.err.log
+
+[Install]
+WantedBy=multi-user.target

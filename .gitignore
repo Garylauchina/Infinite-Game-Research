@@ -1,0 +1,24 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.so
+
+# Data & logs (do not commit)
+data/2026/
+data/segment_*
+data/manifest.jsonl
+logs/
+runs/
+wss_ticks_500.json
+sample_data*.jsonl
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~

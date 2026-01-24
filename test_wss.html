@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>WSS 连接测试</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #0a0a0f; color: #fff; }
+        #status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .connected { background: #0a5; }
+        .disconnected { background: #a50; }
+        #messages { height: 400px; overflow-y: auto; background: #1a1a2e; padding: 10px; border-radius: 4px; }
+        .tick { color: #0ff; }
+        .heartbeat { color: #ff0; }
+        .error { color: #f55; }
+    </style>
+</head>
+<body>
+    <h1>WSS 连接测试</h1>
+    <div id="status" class="disconnected">未连接</div>
+    <button id="connectBtn">连接 WSS</button>
+    <button id="disconnectBtn">断开连接</button>
+    <div id="messages"></div>
+
+    <script>
+        const statusDiv = document.getElementById('status');
+        const messagesDiv = document.getElementById('messages');
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        let ws = null;
+
+        function addMessage(type, text) {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        connectBtn.onclick = () => {
+            if (ws) return;
+            
+            addMessage('info', '正在连接 wss://45.76.97.37/ws/stream...');
+            statusDiv.textContent = '连接中...';
+            statusDiv.className = 'disconnected';
+            
+            ws = new WebSocket('wss://45.76.97.37/ws/stream');
+            
+            ws.onopen = () => {
+                addMessage('info', '✅ WebSocket 连接成功');
+                statusDiv.textContent = '已连接';
+                statusDiv.className = 'connected';
+            };
+            
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.type === 'tick') {
+                        addMessage('tick', `Tick ${data.t}: ${data.agents.length} agents, ${data.matches.length} matches`);
+                    } else if (data.type === 'heartbeat') {
+                        addMessage('heartbeat', `心跳: t=${data.t}`);
+                    } else if (data.type === 'pong') {
+                        addMessage('info', '收到 pong');
+                    } else {
+                        addMessage('info', `收到: ${JSON.stringify(data)}`);
+                    }
+                } catch(e) {
+                    addMessage('error', `解析错误: ${e.message}`);
+                }
+            };
+            
+            ws.onerror = (error) => {
+                addMessage('error', `连接错误: ${error}`);
+                statusDiv.textContent = '连接错误';
+                statusDiv.className = 'disconnected';
+            };
+            
+            ws.onclose = () => {
+                addMessage('info', '连接已关闭');
+                statusDiv.textContent = '未连接';
+                statusDiv.className = 'disconnected';
+                ws = null;
+            };
+        };
+
+        disconnectBtn.onclick = () => {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        };
+    </script>
+</body>
+</html>

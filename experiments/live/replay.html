@@ -1,0 +1,536 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Infinite Game — History Replay</title>
+  <style>
+    html, body { margin:0; padding:0; width:100%; height:100%; background:#05060a; overflow:hidden; font-family: ui-monospace, monospace; }
+    #container { display:flex; width:100%; height:100%; }
+    #canvas-container { flex:1; position:relative; }
+    canvas { display:block; width:100%; height:100%; }
+    #controls { width:280px; background:rgba(0,0,0,0.8); padding:12px; color:#fff; overflow-y:auto; }
+    .control-group { margin-bottom:16px; }
+    .control-group label { display:block; font-size:11px; margin-bottom:4px; opacity:0.7; }
+    .control-group input, .control-group select, .control-group button { width:100%; padding:6px; font-size:12px; }
+    button { background:#1a1a2e; border:1px solid #333; color:#fff; cursor:pointer; }
+    button:hover { background:#2a2a3e; }
+    button.active { background:#3a5; }
+    #scrubber { width:100%; margin:8px 0; }
+    #status { font-size:10px; opacity:0.6; margin-top:8px; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="canvas-container">
+      <canvas id="cv"></canvas>
+    </div>
+    <div id="controls">
+      <div class="control-group">
+        <label>Run ID</label>
+        <select id="run-select"></select>
+      </div>
+      <div class="control-group">
+        <button id="play-pause">Play</button>
+      </div>
+      <div class="control-group">
+        <label>Speed</label>
+        <select id="speed-select">
+          <option value="0.25">0.25x</option>
+          <option value="1" selected>1x</option>
+          <option value="4">4x</option>
+          <option value="16">16x</option>
+        </select>
+      </div>
+      <div class="control-group">
+        <label>Time: <span id="time-display">0</span> / <span id="max-time">0</span></label>
+        <input type="range" id="scrubber" min="0" max="0" value="0" step="1">
+      </div>
+      <div class="control-group">
+        <button id="reset-btn">Reset to t=0</button>
+      </div>
+      <div id="status"></div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d', { alpha: false });
+  const runSelect = document.getElementById('run-select');
+  const playPauseBtn = document.getElementById('play-pause');
+  const speedSelect = document.getElementById('speed-select');
+  const scrubber = document.getElementById('scrubber');
+  const timeDisplay = document.getElementById('time-display');
+  const maxTimeDisplay = document.getElementById('max-time');
+  const resetBtn = document.getElementById('reset-btn');
+  const statusEl = document.getElementById('status');
+
+  let W = 0, H = 0, DPR = 1;
+  function resize() {
+    DPR = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    W = Math.floor(cv.parentElement.clientWidth * DPR);
+    H = Math.floor(cv.parentElement.clientHeight * DPR);
+    cv.width = W; cv.height = H;
+    cv.style.width = cv.parentElement.clientWidth + 'px';
+    cv.style.height = cv.parentElement.clientHeight + 'px';
+  }
+  addEventListener('resize', resize);
+  resize();
+
+  // =========================
+  // IndexManager
+  // =========================
+  class IndexManager {
+    constructor(segments) {
+      // 确保 segments 是数组
+      if (!Array.isArray(segments)) {
+        console.error('[IndexManager] segments is not an array:', segments);
+        this.segments = [];
+        return;
+      }
+      this.segments = segments.sort((a, b) => (a.t_start || 0) - (b.t_start || 0));
+    }
+    
+    findSegmentByTick(t) {
+      // 二分查找
+      let left = 0, right = this.segments.length - 1;
+      while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        const seg = this.segments[mid];
+        if (t >= seg.t_start && t <= seg.t_end) {
+          return seg;
+        } else if (t < seg.t_start) {
+          right = mid - 1;
+        } else {
+          left = mid + 1;
+        }
+      }
+      return null;
+    }
+    
+    getMaxTick() {
+      if (this.segments.length === 0) return 0;
+      return this.segments[this.segments.length - 1].t_end;
+    }
+  }
+
+  // =========================
+  // SegmentLoader
+  // =========================
+  class SegmentLoader {
+    constructor(runId) {
+      this.runId = runId;
+      this.cache = new Map(); // LRU缓存，最多5段
+      this.maxCacheSize = 5;
+    }
+    
+    async loadSegment(segName) {
+      if (this.cache.has(segName)) {
+        // LRU: 移到末尾
+        const data = this.cache.get(segName);
+        this.cache.delete(segName);
+        this.cache.set(segName, data);
+        return data;
+      }
+      
+      // 加载
+      const url = `/runs/${this.runId}/segment/${segName}?format=jsonl`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const points = [];
+      for (const line of text.split('\n')) {
+        if (line.trim()) {
+          try {
+            points.push(JSON.parse(line));
+          } catch(e) {}
+        }
+      }
+      
+      // 加入缓存
+      this.cache.set(segName, points);
+      if (this.cache.size > this.maxCacheSize) {
+        // 删除最旧的
+        const firstKey = this.cache.keys().next().value;
+        this.cache.delete(firstKey);
+      }
+      
+      return points;
+    }
+    
+    clearCache() {
+      this.cache.clear();
+    }
+  }
+
+  // =========================
+  // ReplayEngine
+  // =========================
+  class ReplayEngine {
+    constructor(loader, indexManager) {
+      this.loader = loader;
+      this.indexManager = indexManager;
+      this.playing = false;
+      this.speed = 1.0;
+      this.currentTick = 0;
+      this.renderWindow = 50000; // 最多保留50000点
+      this.points = []; // 当前渲染窗口的点
+      this.pendingPoints = []; // 待播放的点队列
+      this.currentSegment = null;
+      this.currentSegmentIndex = 0;
+      this.basePointsPerFrame = 200;
+    }
+    
+    async start() {
+      // 从t=0开始
+      await this.jumpTo(0);
+      this.play();
+    }
+    
+    async jumpTo(t) {
+      this.playing = false;
+      this.pendingPoints = [];
+      this.points = [];
+      
+      const seg = this.indexManager.findSegmentByTick(t);
+      if (!seg) {
+        console.warn(`[Replay] No segment found for t=${t}`);
+        return;
+      }
+      
+      // 加载当前段 + 前后各一段（共3段缓冲）
+      const segIndex = this.indexManager.segments.findIndex(s => s.seg === seg.seg);
+      const segmentsToLoad = [];
+      if (segIndex > 0) segmentsToLoad.push(this.indexManager.segments[segIndex - 1]);
+      segmentsToLoad.push(seg);
+      if (segIndex < this.indexManager.segments.length - 1) {
+        segmentsToLoad.push(this.indexManager.segments[segIndex + 1]);
+      }
+      
+      // 加载所有段
+      for (const s of segmentsToLoad) {
+        const points = await this.loader.loadSegment(s.file);
+        // 只保留当前段中 >= t 的点（不过滤 z2=[0,0]，因为早期 PCA 未就绪是正常的）
+        if (s.seg === seg.seg) {
+          this.pendingPoints = points.filter(p => p.t >= t);
+        }
+      }
+      
+      console.log(`[Replay] Loaded ${this.pendingPoints.length} points from segment ${seg.file}`);
+      
+      this.currentSegment = seg;
+      this.currentSegmentIndex = segIndex;
+      this.currentTick = t;
+      
+      console.log(`[Replay] Jumped to t=${t}, segment=${seg.file}, pending=${this.pendingPoints.length} points`);
+    }
+    
+    async play() {
+      this.playing = true;
+      this.tick();
+    }
+    
+    pause() {
+      this.playing = false;
+    }
+    
+    setSpeed(speed) {
+      this.speed = parseFloat(speed);
+    }
+    
+    async tick() {
+      if (!this.playing) return;
+      
+      const pointsThisFrame = Math.floor(this.basePointsPerFrame * this.speed);
+      let consumed = 0;
+      
+      // 消费点
+      while (consumed < pointsThisFrame && this.pendingPoints.length > 0) {
+        const pt = this.pendingPoints.shift();
+        this.points.push(pt);
+        this.currentTick = pt.t;
+        consumed++;
+        
+        // 如果当前段消费完，预取下一段（80%阈值）
+        if (this.pendingPoints.length === 0 && this.currentSegmentIndex < this.indexManager.segments.length - 1) {
+          const nextSeg = this.indexManager.segments[this.currentSegmentIndex + 1];
+          const points = await this.loader.loadSegment(nextSeg.file);
+          this.pendingPoints.push(...points);
+          this.currentSegmentIndex++;
+          this.currentSegment = nextSeg;
+        }
+      }
+      
+      // 限制渲染窗口
+      if (this.points.length > this.renderWindow) {
+        this.points = this.points.slice(-this.renderWindow);
+      }
+      
+      // 更新UI
+      updateUI();
+      
+      requestAnimationFrame(() => this.tick());
+    }
+    
+    getCurrentTick() {
+      return this.currentTick;
+    }
+    
+    getPoints() {
+      return this.points;
+    }
+  }
+
+  // =========================
+  // Renderer
+  // =========================
+  class Renderer {
+    constructor(canvas, ctx) {
+      this.canvas = canvas;
+      this.ctx = ctx;
+      this.dpr = DPR;
+      this.densityGrid = null; // 200x200 密度栅格
+      this.lastRenderTime = 0;
+      this.renderThrottle = 1000 / 30; // 30fps
+    }
+    
+    updateDensityGrid(points) {
+      if (points.length === 0) return;
+      
+      const gridSize = 200;
+      this.densityGrid = Array(gridSize * gridSize).fill(0);
+      
+      // 计算边界
+      const xs = points.map(p => p.z2[0]).filter(x => x !== 0);
+      const ys = points.map(p => p.z2[1]).filter(y => y !== 0);
+      if (xs.length === 0 || ys.length === 0) return;
+      
+      const minX = Math.min(...xs), maxX = Math.max(...xs);
+      const minY = Math.min(...ys), maxY = Math.max(...ys);
+      const rangeX = maxX - minX || 1;
+      const rangeY = maxY - minY || 1;
+      
+      // 累积密度
+      for (const pt of points) {
+        if (pt.z2[0] === 0 && pt.z2[1] === 0) continue;
+        const gx = Math.floor((pt.z2[0] - minX) / rangeX * gridSize);
+        const gy = Math.floor((pt.z2[1] - minY) / rangeY * gridSize);
+        if (gx >= 0 && gx < gridSize && gy >= 0 && gy < gridSize) {
+          this.densityGrid[gy * gridSize + gx]++;
+        }
+      }
+      
+      this.bounds = { minX, maxX, minY, maxY, rangeX, rangeY };
+    }
+    
+    mapXY(x, y) {
+      if (!this.bounds) return [0, 0];
+      const pad = 40 * this.dpr;
+      const xNorm = (x - this.bounds.minX) / this.bounds.rangeX;
+      const yNorm = (y - this.bounds.minY) / this.bounds.rangeY;
+      const px = pad + xNorm * (W - 2*pad);
+      const py = (H - pad) - yNorm * (H - 2*pad);
+      return [px, py];
+    }
+    
+    render(points) {
+      const now = performance.now();
+      if (now - this.lastRenderTime < this.renderThrottle) {
+        return; // 节流
+      }
+      this.lastRenderTime = now;
+      
+      // 清屏
+      this.ctx.fillStyle = '#05060a';
+      this.ctx.fillRect(0, 0, W, H);
+      
+      if (points.length === 0) return;
+      
+      // 更新密度栅格
+      this.updateDensityGrid(points);
+      
+      // Layer 1: 密度热力图
+      if (this.densityGrid && this.bounds) {
+        const gridSize = 200;
+        const maxDensity = Math.max(...this.densityGrid);
+        if (maxDensity > 0) {
+          for (let gy = 0; gy < gridSize; gy++) {
+            for (let gx = 0; gx < gridSize; gx++) {
+              const density = this.densityGrid[gy * gridSize + gx];
+              if (density > 0) {
+                const intensity = density / maxDensity;
+                const x = this.bounds.minX + (gx / gridSize) * this.bounds.rangeX;
+                const y = this.bounds.minY + (gy / gridSize) * this.bounds.rangeY;
+                const [px, py] = this.mapXY(x, y);
+                const cellW = (W - 80*this.dpr) / gridSize;
+                const cellH = (H - 80*this.dpr) / gridSize;
+                
+                this.ctx.fillStyle = `rgba(100, 150, 255, ${intensity * 0.3})`;
+                this.ctx.fillRect(px - cellW/2, py - cellH/2, cellW, cellH);
+              }
+            }
+          }
+        }
+      }
+      
+      // Layer 2: 最近窗口的轨迹（只画最后1000点，避免卡顿）
+      const recentPoints = points.slice(-1000);
+      this.ctx.strokeStyle = 'rgba(200, 220, 255, 0.15)';
+      this.ctx.lineWidth = 1 * this.dpr;
+      this.ctx.beginPath();
+      for (let i = 0; i < recentPoints.length; i++) {
+        const pt = recentPoints[i];
+        if (pt.z2[0] === 0 && pt.z2[1] === 0) continue;
+        const [x, y] = this.mapXY(pt.z2[0], pt.z2[1]);
+        if (i === 0) {
+          this.ctx.moveTo(x, y);
+        } else {
+          this.ctx.lineTo(x, y);
+        }
+      }
+      this.ctx.stroke();
+      
+      // 当前点高亮
+      if (recentPoints.length > 0) {
+        const lastPt = recentPoints[recentPoints.length - 1];
+        if (lastPt.z2[0] !== 0 || lastPt.z2[1] !== 0) {
+          const [x, y] = this.mapXY(lastPt.z2[0], lastPt.z2[1]);
+          this.ctx.fillStyle = 'rgba(255, 200, 100, 0.8)';
+          this.ctx.beginPath();
+          this.ctx.arc(x, y, 4 * this.dpr, 0, Math.PI*2);
+          this.ctx.fill();
+        }
+      }
+    }
+  }
+
+  // =========================
+  // 全局状态
+  // =========================
+  let indexManager = null;
+  let segmentLoader = null;
+  let replayEngine = null;
+  let renderer = null;
+
+  // =========================
+  // UI更新
+  // =========================
+  function updateUI() {
+    if (!replayEngine) return;
+    
+    const t = replayEngine.getCurrentTick();
+    const maxT = indexManager ? indexManager.getMaxTick() : 0;
+    
+    timeDisplay.textContent = t;
+    maxTimeDisplay.textContent = maxT;
+    scrubber.max = maxT;
+    scrubber.value = t;
+    
+    statusEl.textContent = `Points: ${replayEngine.points.length} | Pending: ${replayEngine.pendingPoints.length}`;
+  }
+
+  function renderLoop() {
+    if (replayEngine) {
+      renderer.render(replayEngine.getPoints());
+    }
+    requestAnimationFrame(renderLoop);
+  }
+
+  // =========================
+  // 事件处理
+  // =========================
+  async function loadRuns() {
+    const res = await fetch('/runs');
+    const runs = await res.json();
+    runSelect.innerHTML = '';
+    for (const runId of runs) {
+      const opt = document.createElement('option');
+      opt.value = runId;
+      opt.textContent = runId;
+      runSelect.appendChild(opt);
+    }
+    if (runs.length > 0) {
+      runSelect.value = runs[runs.length - 1]; // 默认最新
+      await loadRun(runs[runs.length - 1]);
+    }
+  }
+
+  async function loadRun(runId) {
+    try {
+      // 加载 segments
+      const res = await fetch(`/runs/${runId}/segments`);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      }
+      const segments = await res.json();
+      
+      // 确保 segments 是数组
+      if (!Array.isArray(segments)) {
+        console.error('[Load] segments is not an array:', segments);
+        throw new Error('Invalid segments format: expected array');
+      }
+      
+      if (segments.length === 0) {
+        statusEl.textContent = 'No segments available yet. Waiting for data...';
+        return;
+      }
+      
+      indexManager = new IndexManager(segments);
+      segmentLoader = new SegmentLoader(runId);
+      renderer = new Renderer(cv, ctx);
+      
+      replayEngine = new ReplayEngine(segmentLoader, indexManager);
+      await replayEngine.start();
+      
+      console.log(`[Load] Run ${runId} loaded: ${segments.length} segments`);
+    } catch(e) {
+      console.error('[Load] Failed:', e);
+      statusEl.textContent = `Error: ${e.message}`;
+    }
+  }
+
+  playPauseBtn.addEventListener('click', () => {
+    if (!replayEngine) return;
+    if (replayEngine.playing) {
+      replayEngine.pause();
+      playPauseBtn.textContent = 'Play';
+      playPauseBtn.classList.remove('active');
+    } else {
+      replayEngine.play();
+      playPauseBtn.textContent = 'Pause';
+      playPauseBtn.classList.add('active');
+    }
+  });
+
+  speedSelect.addEventListener('change', (e) => {
+    if (replayEngine) {
+      replayEngine.setSpeed(e.target.value);
+    }
+  });
+
+  scrubber.addEventListener('input', async (e) => {
+    if (replayEngine) {
+      const t = parseInt(e.target.value);
+      await replayEngine.jumpTo(t);
+    }
+  });
+
+  resetBtn.addEventListener('click', async () => {
+    if (replayEngine) {
+      await replayEngine.jumpTo(0);
+    }
+  });
+
+  runSelect.addEventListener('change', async (e) => {
+    await loadRun(e.target.value);
+  });
+
+  // =========================
+  // 启动
+  // =========================
+  loadRuns();
+  renderLoop();
+})();
+</script>
+</body>
+</html>
