@@ -1,314 +1,675 @@
-# Infinite-Game-Research
+# Infinite Game Backend — Market Camera v2
 
-> A finite game is played for the purpose of winning, an infinite game for the purpose of continuing the play.  
-> — James P. Carse, *Finite and Infinite Games*
+## 概述
 
----
+本后端系统是一个**实时市场结构相机**（Market Camera），从 Infinite Game 核心模拟器消费原始 tick 数据，通过滑动窗口聚合器构建**结构帧（Structure Frames）**，并通过 WebSocket 实时流式传输给客户端，同时将数据持久化到磁盘（分段压缩存储）。
 
-## 项目简介
-
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18333578.svg)](https://doi.org/10.5281/zenodo.18333578)
-
-这是一个研究仓库，用于进行理论展示和测试数据分析。Infinite Game 是一个基于反身性原理的交易所模拟器，用于研究金融市场中的结构涌现和演化机制。
-
-**核心设计范式**：
-1. **唯一参与主体**：一个市场中存在唯一参与主体"市场先生"（Market Entity），代表着所有交易的聚合
-2. **结构密度作为奖励函数**：设计了"结构密度"作为奖励函数的核心组成部分（权重0.4），驱动市场先生的参与决策
+**核心特性：**
+- ✅ **零核心修改**：不修改 `core_system/`，所有处理在 wrapper 层完成
+- ✅ **实时流式传输**：WebSocket 推送 `metric`（轻量）和 `frame`（结构）
+- ✅ **历史回放**：分段存储（JSONL.zst），支持完整历史数据回放
+- ✅ **前后端解耦**：前端可独立开发，通过 WSS/HTTP 访问数据
+- ✅ **滚动存储**：自动清理旧数据，防止磁盘溢出
 
 ---
 
-## 文档导航
-
-### 📚 核心文档
-
-1. **[理论框架](THEORETICAL_FRAMEWORK.md)**  
-   完整的理论框架文档，包括：
-   - 哲学基础（有限与无限游戏）
-   - 核心理论概念（反身性、涌现、协议、相变）
-   - 系统架构理论
-   - 反身性机制详解
-   - 涌现与复杂性分析
-   - 范式演进（V0 → V4.x → V5.0）
-
-2. **[研究论文](RESEARCH_PAPER.md)**  
-   学术研究论文（草稿），包括：
-   - 摘要与关键词
-   - 引言与研究问题
-   - 文献综述
-   - 理论框架
-   - 系统设计
-   - 实验设计与结果分析
-   - 讨论与结论
-
-3. **[技术文档](TECHNICAL_DOCUMENTATION.md)**  
-   技术实现文档，包括：
-   - 系统概述与架构设计
-   - 核心组件详解
-   - 数据流与关键算法
-   - 实验方法与数据分析
-   - 性能优化与扩展性
-
----
-
-## 项目结构
+## 架构
 
 ```
-Infinite-Game-Research/
-├── README.md                      # 项目导航（本文件）
-├── LICENSE                        # MIT 许可证
-├── THEORETICAL_FRAMEWORK.md       # 理论框架文档
-├── RESEARCH_PAPER.md              # 研究论文（草稿）
-├── TECHNICAL_DOCUMENTATION.md     # 技术文档
-├── InfiniteGame_V5_TechnicalNote.md  # V5.0 技术笔记
-├── PHASE_TEST_SPECIFICATION.md      # P0-P3 阶段测试规范
-├── P0_P3_TEST_REPORT.md             # P0-P3 阶段测试完整报告
-├── core_system/                   # 核心系统代码（已锁定版本，可直接使用）
-│   ├── README.md                  # 代码说明
-│   ├── __init__.py                # 包初始化
-│   ├── main.py                    # 主模拟器（V5MarketSimulator）
-│   ├── random_player.py           # 随机体验玩家
-│   ├── state_engine.py            # 状态引擎
-│   ├── trading_rules.py           # 交易规则
-│   ├── chaos_rules.py             # 混乱因子规则
-│   └── metrics.py                 # 结构密度计算
-├── experiments/                   # 实验框架
-│   ├── README.md                  # 实验框架说明
-│   ├── QUICK_START.md             # 快速开始指南
-│   ├── requirements.txt           # 依赖列表
-│   ├── configs/                   # 配置文件
-│   │   ├── default.yaml           # 默认配置
-│   │   ├── quick_test.yaml        # 快速测试
-│   │   └── full_validation.yaml   # 完整验证
-│   ├── analysis/                  # 分析脚本
-│   │   ├── summarize.py           # 汇总指标
-│   │   ├── timeseries_plots.py    # 时间序列图
-│   │   ├── state_space_plots.py   # 状态空间图
-│   │   ├── compare_runs.py        # 对比运行
-│   │   └── phase_diagrams.py      # 参数扫描图
-│   ├── run_single.py              # 单seed运行
-│   ├── config_loader.py           # 配置加载
-│   └── data_saver.py              # 数据保存
-├── data/                          # 测试数据目录
-│   ├── experiments/               # 实验运行数据
-│   ├── analysis/                  # 分析结果
-│   ├── phase_analysis_output/     # P0-P3 阶段测试结果数据
-│   └── README.md                  # 数据说明
-└── archive/                       # 归档目录
-    ├── README.md                  # 归档说明
-    └── [旧资料和工具文件]
+┌─────────────────┐
+│ V5MarketSimulator│ (core_system, 不变)
+└────────┬────────┘
+         │ 每 tick: s, agents, actions, matches
+         ▼
+┌─────────────────┐
+│  SlidingWindow  │ 滑动窗口聚合器 (W=300 ticks)
+│     Camera      │ 构建结构帧: nodes + edges
+└────────┬────────┘
+         │
+         ├─→ metric (每 tick) ──→ WSS ──→ 客户端
+         │                        │
+         └─→ frame (每 STRIDE) ──→ WSS ──→ 客户端
+                                    │
+                                    ▼
+                            ┌──────────────┐
+                            │ ZstdRecorder │ 分段存储
+                            │ frames/      │ JSONL.zst
+                            │ metrics/     │
+                            └──────────────┘
 ```
 
 ---
 
-## 核心概念
+## 数据结构
 
-### 系统定位：市场基底模型（Market Substrate / Zero Model）
+### 1. Metric 消息（轻量级，每 tick 或按 downsample）
 
-**当前系统定位为**：一个仅保留交易市场最小共性规则的**市场基底模型**。
+```json
+{
+  "type": "metric",
+  "t": 12345,
+  "s": {
+    "price_norm": 0.49875,
+    "volatility": 0.003,
+    "liquidity": 1.0,
+    "imbalance": 0.0
+  },
+  "N": 10,
+  "avg_exp": 0.85,
+  "matches_n": 3
+}
+```
 
-该模型刻意剥离了：
-- 个体策略智能与学习
-- 信息不对称与预期博弈
-- 信用、杠杆、清算与破产
-- 制度级规则切换
-- 外生冲击与危机触发器
+**字段说明：**
 
-**研究目标**：在极简、共性的交易规则下，市场是否仍然会自发地产生稳定而非平凡的结构？
-
-**核心发现**：市场复杂结构的一个重要来源，是交易规则本身，而非参与者行为或制度细节。
-
-### 市场先生（Market Entity / MarketMr）：唯一参与主体
-
-**核心设计范式**：一个市场中存在**唯一参与主体"市场先生"**，代表着所有交易的聚合。
-
-- **唯一参与主体**：对于一个单一市场，仅存在一个抽象的"市场先生"，它是市场中所有交易的聚合代表
-- **分身机制**：市场先生通过多个分身（Avatar/Player）表示其参与强度，分身数量 = 参与强度
-- **交易聚合**：所有分身的交易行为聚合为市场的整体交易活动，市场先生代表所有交易的统一主体
-- **盈亏抵消**：多个分身的盈利/亏损互相抵消，市场先生实际支付的只是交易费用
-
-### 市场结构密度（Market Structure Density）：奖励函数
-
-**核心设计范式**：设计了"结构密度"作为奖励函数的核心组成部分。
-
-- **定义**：衡量市场状态轨迹在状态空间中的分布复杂程度
-- **作为奖励函数**：结构密度直接作为体验奖励的核心组成部分（权重0.4），驱动市场先生的参与决策
-- **计算**：通过聚类分析、转移矩阵熵等指标计算（`complexity = 0.4 * protocol_score + 0.4 * transfer_entropy + 0.2 * uniformity`）
-- **反馈机制**：市场结构密度的强弱，决定市场先生参与强度的大小（分身数量），形成"结构密度 → 体验奖励 → 参与强度"的正反馈循环
-
-### 混乱因子（Chaos Factor）
-
-- **定义**：当参与强度高时，"混乱因子"会升高，惩罚交易成功概率
-- **作用**：防止系统过度拥挤，维持动态平衡，避免单一吸引子主导
-
-### 规则提炼（Rule Extraction）
-
-- **设计原则**：不去模拟单个交易所复杂的规则集，而是将金融市场最根本的共性规则提炼出来
-- **核心思想**：简单规则也会产生复杂结构
-- **意义**：通过提炼共性规则，我们能够观察到市场结构的本质特征，而不被具体交易所的复杂规则所干扰
-
-### 涌现（Emergence）
-
-宏观层面的复杂结构从微观层面的简单规则和交互中自发产生。
-
-### 设计范式的潜在应用
-
-本模拟器采用的设计范式（单一抽象主体 + 结构密度作为奖励函数）可能具有一定的普适性，适用于需要从系统整体视角理解、通过结构复杂度驱动演化的场景。潜在的应用领域包括：
-
-- **虚拟经济/游戏经济**：通过结构密度自动调节经济系统活力
-- **多智能体环境设计**：通过环境复杂度自适应调节训练难度
-- **人工社会模拟**：通过社会复杂度驱动社会系统演化
-- **模拟城市/生态**：通过系统复杂度维持系统稳定性和可持续性
-- **AI训练环境**：通过环境复杂度实现自适应课程学习
-
-**未来工作方向**：本模拟器的长期发展目标是能够持续输出"结构参数集"（包括结构密度计算方法、参与强度调整机制、反馈循环参数等），这些参数集可以作为模块化的组件植入到各种模拟实验环境中，为其他领域的研究提供参考。
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `type` | string | 固定值 `"metric"` |
+| `t` | integer | Tick 编号（从 0 开始递增） |
+| `s` | object | 市场状态 |
+| `s.price_norm` | float | 归一化价格 (0-1) |
+| `s.volatility` | float | 波动率 |
+| `s.liquidity` | float | 流动性 (0-1) |
+| `s.imbalance` | float | 不平衡度 (-1 到 1) |
+| `N` | integer | 当前活跃玩家数量 |
+| `avg_exp` | float | 平均经验值 |
+| `matches_n` | integer | 本 tick 成交数量 |
 
 ---
 
-## 版本信息
+### 2. Frame 消息（结构帧，每 STRIDE ticks，t >= W 后开始）
 
-- **当前版本**: V5.0 (GameTheoryMarket)
-- **核心范式**: 规则驱动 + 随机试玩 + 状态格子行走
+```json
+{
+  "type": "frame",
+  "t": 12340,
+  "window": {
+    "W": 300,
+    "t0": 12041,
+    "t1": 12340,
+    "stride": 10
+  },
+  "nodes": [
+    {
+      "node_id": "agent:0@t:12041-12340",
+      "agent_id": 0,
+      "t0": 12041,
+      "t1": 12340,
+      "features": {
+        "buy_count": 5,
+        "sell_count": 2,
+        "none_count": 293,
+        "match_count": 1,
+        "match_rate": 0.00333,
+        "quote_price_mean": 50123.5,
+        "quote_price_std": 120.1,
+        "quote_dist_to_mid_mean": 0.001,
+        "experience_start": 0.8,
+        "experience_end": 0.82,
+        "experience_delta": 0.02,
+        "dominant_side": "none"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "src": "agent:0@t:12041-12340",
+      "dst": "agent:1@t:12041-12340",
+      "type": "match",
+      "w": 0.01
+    },
+    {
+      "src": "agent:1@t:12041-12340",
+      "dst": "agent:2@t:12041-12340",
+      "type": "quote_proximity",
+      "w": 0.005
+    }
+  ],
+  "events": {
+    "bursts": [],
+    "shocks": []
+  }
+}
+```
+
+**字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `type` | string | 固定值 `"frame"` |
+| `t` | integer | 当前 tick（窗口结束点） |
+| `window` | object | 窗口信息 |
+| `window.W` | integer | 窗口大小（ticks） |
+| `window.t0` | integer | 窗口起始 tick |
+| `window.t1` | integer | 窗口结束 tick |
+| `window.stride` | integer | 帧发送间隔 |
+| `nodes` | array | 节点列表（每个 agent 一个节点） |
+| `nodes[].node_id` | string | 节点 ID：`"agent:<aid>@t:<t0>-<t1>"` |
+| `nodes[].agent_id` | integer | Agent ID |
+| `nodes[].t0`, `nodes[].t1` | integer | 时间窗口 |
+| `nodes[].features` | object | 节点特征（见下表） |
+| `edges` | array | 边列表（最多 `EDGE_CAP` 条） |
+| `edges[].src`, `edges[].dst` | string | 源/目标节点 ID |
+| `edges[].type` | string | 边类型：`"match"` 或 `"quote_proximity"` |
+| `edges[].w` | float | 权重（0-1，归一化） |
+
+**节点特征（`features`）：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `buy_count` | integer | 窗口内 buy 动作数量 |
+| `sell_count` | integer | 窗口内 sell 动作数量 |
+| `none_count` | integer | 窗口内 none 动作数量 |
+| `match_count` | integer | 窗口内成交次数 |
+| `match_rate` | float | 成交率 = `match_count / W` |
+| `quote_price_mean` | float | 报价价格均值 |
+| `quote_price_std` | float | 报价价格标准差 |
+| `quote_dist_to_mid_mean` | float | 报价到中位价的平均距离（归一化） |
+| `experience_start` | float | 窗口起始经验值 |
+| `experience_end` | float | 窗口结束经验值 |
+| `experience_delta` | float | 经验值变化 |
+| `dominant_side` | string | 主导方向：`"buy"` / `"sell"` / `"none"` |
+
+**边类型：**
+- `match`：成交边（两个 agent 在窗口内发生成交）
+- `quote_proximity`：报价邻近边（两个 agent 的报价在价格上接近，距离 ≤ `eps_pct * mid`）
 
 ---
 
-## 实验结果
+## API 接口
 
-**✅ P0-P3 阶段测试已完成**：所有测试均成功通过，详细结果请参考 [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md)。
+### WebSocket 实时流
 
-**核心测试结果**：
-- **P0 (非线性测试)**: 系统展现出显著的非线性响应特征，所有种子通过
-- **P1 (反身性测试)**: 反身性机制运行良好，基础决策一致性达到100%
-- **P2 (多尺度结构密度测试)**: 结构密度计算在不同尺度下高度稳定（平均稳定性 > 98.7%）
-- **P3 (混沌因子消融测试)**: 混沌因子作为控制手柄有效，不同强度下系统行为可预测且稳定
+**端点**: `/ws/stream`  
+**协议**: WebSocket (WS/WSS)  
+**URL**: 
+- 开发: `ws://localhost:8000/ws/stream`
+- 生产: `wss://45.76.97.37/ws/stream`
 
-详细的测试规范请参考 [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md)。
+#### 连接示例（JavaScript）
+
+```javascript
+const ws = new WebSocket('wss://45.76.97.37/ws/stream');
+
+ws.onopen = () => {
+    console.log('✅ WebSocket 连接成功');
+};
+
+ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    
+    if (msg.type === 'metric') {
+        console.log(`Metric t=${msg.t}: N=${msg.N}, matches=${msg.matches_n}`);
+    } else if (msg.type === 'frame') {
+        console.log(`Frame t=${msg.t}: ${msg.nodes.length} nodes, ${msg.edges.length} edges`);
+        // 处理结构帧：构建图、可视化等
+    } else if (msg.type === 'heartbeat') {
+        console.log(`心跳: t=${msg.t}`);
+    }
+};
+
+ws.onerror = (error) => {
+    console.error('连接错误:', error);
+};
+
+ws.onclose = () => {
+    console.log('连接已关闭');
+};
+```
+
+#### 连接示例（Python）
+
+```python
+import asyncio
+import websockets
+import json
+import ssl
+
+# 自签名证书：禁用验证
+ssl_context = ssl.SSLContext()
+ssl_context.check_hostname = False
+ssl_context.verify_mode = ssl.CERT_NONE
+
+async def connect():
+    uri = "wss://45.76.97.37/ws/stream"
+    async with websockets.connect(uri, ssl=ssl_context) as websocket:
+        print("✅ WebSocket 连接成功")
+        
+        async for message in websocket:
+            msg = json.loads(message)
+            
+            if msg["type"] == "metric":
+                print(f"Metric t={msg['t']}: N={msg['N']}, matches={msg['matches_n']}")
+            elif msg["type"] == "frame":
+                print(f"Frame t={msg['t']}: {len(msg['nodes'])} nodes, {len(msg['edges'])} edges")
+            elif msg["type"] == "heartbeat":
+                print(f"心跳: t={msg['t']}")
+
+asyncio.run(connect())
+```
+
+#### 消息类型
+
+| 类型 | 说明 | 频率 |
+|------|------|------|
+| `metric` | 轻量级指标 | 每 tick（或按 `CAM_METRIC_DOWNSAMPLE`） |
+| `frame` | 结构帧 | 每 `STRIDE` ticks（t >= W 后） |
+| `heartbeat` | 心跳 | 每 30 秒（无新数据时） |
+| `pong` | 响应 ping | 客户端发送 `"ping"` 时 |
+
+---
+
+### HTTP API（只读）
+
+#### 1. 健康检查
+
+```http
+GET /health
+```
+
+**响应：**
+```json
+{
+  "ok": true,
+  "meta": {
+    "running": true,
+    "start_ts": 1769234208.5683143,
+    "ticks": 14466,
+    "seed": 0
+  },
+  "current_segment": null
+}
+```
+
+#### 2. 获取 Frames Manifest
+
+```http
+GET /manifest/frames
+```
+
+**响应：** `frames/manifest.json` 内容（段文件列表）
+
+```json
+[
+  {
+    "path": "frames/segment_20260124_120000_1000.jsonl.zst",
+    "start_t": 1000,
+    "end_t": 5000,
+    "lines": 400,
+    "bytes": 12345678,
+    "created_at": "2026-01-24T12:05:00Z",
+    "pending": false
+  }
+]
+```
+
+#### 3. 获取 Metrics Manifest
+
+```http
+GET /manifest/metrics
+```
+
+**响应：** `metrics/manifest.json` 内容（格式同上）
+
+#### 4. 下载段文件（Frames）
+
+```http
+GET /segment/frames/{filename}
+```
+
+**示例：**
+```bash
+curl -O "https://45.76.97.37/segment/frames/segment_20260124_120000_1000.jsonl.zst"
+```
+
+**响应：** 原始 `.zst` 文件（`application/octet-stream`）
+
+#### 5. 下载段文件（Metrics）
+
+```http
+GET /segment/metrics/{filename}
+```
+
+**响应：** 原始 `.zst` 文件
+
+#### 6. API 根路径
+
+```http
+GET /
+```
+
+**响应：** API 端点列表
+
+```json
+{
+  "message": "Infinite Game API",
+  "version": "2.0",
+  "cam_store": "/data/ig_cam",
+  "endpoints": {
+    "health": "/health",
+    "manifest_frames": "/manifest/frames",
+    "manifest_metrics": "/manifest/metrics",
+    "segment_frames": "/segment/frames/{name}",
+    "segment_metrics": "/segment/metrics/{name}",
+    "websocket": "/ws/stream"
+  }
+}
+```
+
+---
+
+## 配置
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `IG_CAM_STORE_DIR` | `/data/ig_cam` | 存储根目录（frames/ + metrics/） |
+| `IG_CAM_W` | `300` | 滑动窗口大小（ticks） |
+| `IG_CAM_STRIDE` | `10` | 帧发送间隔（每 N ticks 发送一次 frame） |
+| `IG_CAM_EDGE_CAP` | `2000` | 每帧最大边数 |
+| `IG_CAM_PROX_EPS_PCT` | `0.003` | 报价邻近阈值（中位价的 0.3%） |
+| `IG_CAM_SEGMENT_SECONDS` | `300` | 段文件滚动间隔（秒，默认 5 分钟） |
+| `IG_CAM_ZSTD_LEVEL` | `3` | zstd 压缩级别（1-22） |
+| `IG_CAM_METRIC_DOWNSAMPLE` | `1` | Metric 采样率（1 = 每 tick，2 = 每 2 ticks） |
+| `IG_SEED` | `0` | 随机种子 |
+| `IG_ADJUST_INTERVAL` | `2000` | 玩家调整间隔（ticks） |
+| `PORT` | `8000` | HTTP/WebSocket 端口 |
+
+### 配置示例
+
+```bash
+export IG_CAM_W=500
+export IG_CAM_STRIDE=20
+export IG_CAM_EDGE_CAP=3000
+export IG_CAM_STORE_DIR=/data/ig_cam
+export PORT=8000
+```
+
+---
+
+## 存储结构
+
+### 目录布局
+
+```
+/data/ig_cam/
+├── frames/
+│   ├── manifest.json              # 段文件索引（append-only）
+│   ├── segment_20260124_120000_1000.jsonl.zst
+│   ├── segment_20260124_120500_5000.jsonl.zst
+│   └── segment_20260124_121000_10000_pending.jsonl.zst  # 当前写入中
+└── metrics/
+    ├── manifest.json
+    ├── segment_20260124_120000_1000.jsonl.zst
+    └── segment_20260124_120500_5000_pending.jsonl.zst
+```
+
+### 段文件格式
+
+- **命名**: `segment_<UTC>_<start_t>.jsonl.zst`
+  - `UTC`: `YYYYMMDD_HHMMSS`
+  - `start_t`: 段起始 tick
+  - `_pending`: 正在写入的段（完成后重命名去掉 `_pending`）
+
+- **内容**: 每行一个 JSON 对象（NDJSON），压缩为 zstd
+  - Frames: `{"type":"frame", "t":..., "window":..., "nodes":..., "edges":...}`
+  - Metrics: `{"type":"metric", "t":..., "s":..., "N":..., ...}`
+
+### Manifest 格式
+
+```json
+[
+  {
+    "path": "frames/segment_20260124_120000_1000.jsonl.zst",
+    "start_t": 1000,
+    "end_t": 5000,
+    "lines": 400,
+    "bytes": 12345678,
+    "created_at": "2026-01-24T12:05:00Z",
+    "pending": false
+  }
+]
+```
+
+**注意**: Manifest 是 **append-only**，不会重写历史记录。
 
 ---
 
 ## 快速开始
 
-### 阅读建议
+### 1. 安装依赖
 
-1. **初学者**：从 [理论框架](THEORETICAL_FRAMEWORK.md) 开始，了解核心概念
-2. **研究者**：阅读 [研究论文](RESEARCH_PAPER.md)，了解研究方法和发现
-3. **开发者**：查看 [技术文档](TECHNICAL_DOCUMENTATION.md)，了解实现细节
-
-### 相关资源
-
-- **核心代码**: 本仓库的 `core_system/` 目录（已锁定版本，可直接使用）
-- **实验框架**: 本仓库的 `experiments/` 目录（完整实验框架，可直接运行和复现）
-- **测试规范**: [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md) - P0-P3 阶段测试规范
-- **测试报告**: [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md) - P0-P3 阶段测试完整报告
-- **技术笔记**: [InfiniteGame_V5_TechnicalNote.md](InfiniteGame_V5_TechnicalNote.md) - 完整技术文档
-
-### 代码说明
-
-本仓库的 `core_system/` 目录包含完整的、可直接运行的核心系统代码：
-
-- ✅ **可直接使用**：所有核心代码已包含，无需依赖外部仓库
-- ✅ **完全可复现**：固定随机种子，确定性执行，支持完全复现的实验
-- ✅ **已验证一致性**：核心代码与测试规范完全一致（见 [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md)）
-
-**核心组件**：
-- `main.py`: V5MarketSimulator - 主模拟器
-- `state_engine.py`: StateEngine - 状态更新引擎
-- `random_player.py`: RandomExperiencePlayer - 随机体验玩家
-- `trading_rules.py`: 交易规则（价格优先、手续费）
-- `chaos_rules.py`: 混乱因子规则（动态调整）
-- `metrics.py`: StructureMetrics - 结构密度计算
-
-**代码版本**：已锁定版本，确保研究结果的可复现性。
-
-### 实验框架与复现
-
-本仓库的 `experiments/` 目录包含**完整的、可直接复现的实验框架**：
-
-#### 快速开始
-
-1. **安装依赖**：
-   ```bash
-   pip install -r experiments/requirements.txt
-   ```
-
-2. **运行快速测试**：
-   ```bash
-   python experiments/run_single.py --config experiments/configs/quick_test.yaml --seed 42
-   ```
-
-3. **查看结果**：
-   - 实验数据保存在 `outputs/runs/` 目录
-   - 使用分析脚本生成可视化图表
-
-#### 完整实验复现
-
-**单次运行**：
 ```bash
-python experiments/run_single.py --config experiments/configs/default.yaml --seed 42
+cd /root/Infinite-Game-Research
+python3 -m venv .venv
+source .venv/bin/activate
+pip install fastapi uvicorn websockets zstandard numpy
 ```
 
-**批量运行**（多seed）：
+### 2. 配置环境变量（可选）
+
 ```bash
-for seed in 42 100 200 300 400; do
-    python experiments/run_single.py --config experiments/configs/default.yaml --seed $seed
-done
+export IG_CAM_STORE_DIR=/data/ig_cam
+export IG_CAM_W=300
+export IG_CAM_STRIDE=10
+export PORT=8000
 ```
 
-**阶段测试**（P0-P3）：
-- ✅ **测试已完成**：所有P0-P3测试均成功通过
-- 📊 **测试报告**：详细结果请参考 [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md)
-- 📋 **测试规范**：参考 [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md) 了解详细的测试规范和复现方法
+### 3. 启动服务
 
-#### 复现性保证
+```bash
+cd experiments/live
+python3 -m uvicorn server:app --host 0.0.0.0 --port 8000
+```
 
-- ✅ **固定随机种子**：所有随机操作使用固定种子
-- ✅ **确定性执行**：相同输入产生相同输出
-- ✅ **完整数据记录**：所有实验数据自动保存，包含元数据
-- ✅ **环境配置**：自动设置线程控制，确保跨平台一致性
+或使用 systemd 服务：
 
-详细说明请参考：
-- [experiments/README.md](experiments/README.md) - 实验框架说明
-- [experiments/QUICK_START.md](experiments/QUICK_START.md) - 快速开始指南
-- [PHASE_TEST_SPECIFICATION.md](PHASE_TEST_SPECIFICATION.md) - 阶段测试规范
+```bash
+sudo systemctl start infinite-live
+sudo systemctl status infinite-live
+```
+
+### 4. 测试连接
+
+```bash
+# 健康检查
+curl http://localhost:8000/health
+
+# 获取 manifest
+curl http://localhost:8000/manifest/frames
+
+# WebSocket 测试（使用 wscat）
+npm install -g wscat
+wscat -c ws://localhost:8000/ws/stream
+```
 
 ---
 
-## 复现性
+## 数据回放
 
-本仓库提供**完全可复现的研究结果**：
+### 前端回放流程
 
-- ✅ **核心代码完整**：`core_system/` 目录包含所有必要的代码
-- ✅ **实验框架完整**：`experiments/` 目录包含完整的实验脚本和分析工具
-- ✅ **文档完整**：所有技术细节、参数设置、算法描述都已文档化
-- ✅ **测试规范**：P0-P3 阶段测试规范已包含，核心代码已验证一致性
-- ✅ **测试完成**：P0-P3 阶段测试已完成，所有测试均通过，详细报告见 [P0_P3_TEST_REPORT.md](P0_P3_TEST_REPORT.md)
-- ✅ **永久存档**：代码和数据已存档至 Zenodo，DOI: [10.5281/zenodo.18333578](https://doi.org/10.5281/zenodo.18333578)
+1. **加载 Manifest**
+   ```javascript
+   const manifest = await fetch('/manifest/frames').then(r => r.json());
+   ```
 
-**复现步骤**：
-1. 克隆本仓库
-2. 安装依赖：`pip install -r experiments/requirements.txt`
-3. 运行实验：`python experiments/run_single.py --config experiments/configs/default.yaml --seed 42`
-4. 查看结果：实验数据自动保存到 `outputs/runs/` 目录
+2. **选择段文件**
+   ```javascript
+   const segment = manifest.find(s => s.start_t <= target_t && s.end_t >= target_t);
+   ```
 
-所有实验结果都可以通过本仓库的代码和配置完全复现。
+3. **下载并解压**
+   ```javascript
+   const response = await fetch(`/segment/frames/${segment.path}`);
+   const compressed = await response.arrayBuffer();
+   // 使用 zstd 解压（需要 zstd-wasm 或后端解压）
+   ```
 
-## 贡献
+4. **解析 JSONL**
+   ```javascript
+   const lines = decompressed.split('\n');
+   const frames = lines.map(line => JSON.parse(line));
+   ```
 
-本项目是研究仓库，提供完整的可复现代码和文档。
+5. **按顺序播放**
+   ```javascript
+   frames.forEach(frame => {
+       renderGraph(frame.nodes, frame.edges);
+   });
+   ```
+
+---
+
+## 模块说明
+
+### `camera_v2.py` — 滑动窗口相机
+
+**类**: `SlidingWindowCamera`
+
+```python
+camera = SlidingWindowCamera(
+    W=300,              # 窗口大小
+    stride=10,          # 帧发送间隔
+    eps_pct=0.003,      # 报价邻近阈值
+    edge_cap=2000       # 最大边数
+)
+
+# 每 tick 调用
+camera.ingest(raw_tick)  # raw_tick = {t, mid, agents, actions, matches}
+
+# 检查是否应该发送 frame
+frame = camera.maybe_build_frame(t)  # 返回 frame 或 None
+```
+
+### `recorder.py` — 分段写入器
+
+**类**: `ZstdSegmentWriter`
+
+```python
+recorder = ZstdSegmentWriter(
+    kind="frames",              # "frames" 或 "metrics"
+    store_dir=Path("/data/ig_cam"),
+    segment_seconds=300,        # 滚动间隔（秒）
+    level=3                     # zstd 压缩级别
+)
+
+# 写入一行
+recorder.write_jsonline(obj, current_t)
+
+# 检查是否需要滚动
+recorder.roll_if_needed(current_t)
+
+# 关闭当前段
+recorder.close()
+```
+
+---
+
+## 部署
+
+### Systemd 服务
+
+服务文件：`infinite-live.service`
+
+```ini
+[Unit]
+Description=Infinite Game Live Backend
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/Infinite-Game-Research
+Environment="PATH=/root/Infinite-Game-Research/.venv/bin"
+ExecStart=/root/Infinite-Game-Research/.venv/bin/python3 -m experiments.live.server
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**启用服务：**
+```bash
+sudo cp infinite-live.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable infinite-live
+sudo systemctl start infinite-live
+```
+
+### Nginx 反向代理（HTTPS/WSS）
+
+参考 `HTTPS_WSS_SETUP_COMPLETE.md` 配置 Nginx 反向代理和 SSL 证书。
+
+---
+
+## 性能与限制
+
+### 数据量估算
+
+- **Metric**: ~200 bytes/tick
+- **Frame**: ~5-50 KB/frame（取决于节点数和边数）
+- **推送频率**: 
+  - Metric: 每 tick（或按 downsample）
+  - Frame: 每 `STRIDE` ticks（默认每 10 ticks）
+
+### 存储估算
+
+- **压缩比**: zstd level 3 约 5-10:1
+- **段文件大小**: 5 分钟约 10-100 MB（取决于活跃度）
+- **滚动策略**: 每 5 分钟或按磁盘使用率自动清理
+
+### 并发限制
+
+- **WebSocket 连接**: 理论上无限制（受服务器资源限制）
+- **HTTP 请求**: FastAPI 默认并发处理
+- **建议**: 监控 CPU/内存/网络带宽
+
+---
+
+## 故障排查
+
+### WebSocket 连接失败
+
+1. 检查服务是否运行：`curl http://localhost:8000/health`
+2. 检查防火墙/端口：`netstat -tlnp | grep 8000`
+3. 查看日志：`tail -f logs/infinite-live.log`
+
+### 数据不更新
+
+1. 检查模拟器是否运行（`meta.running` 应为 `true`）
+2. 检查 `CAM_METRIC_DOWNSAMPLE` 配置
+3. 检查 Frame 发送条件：`t >= W` 且 `t % STRIDE == 0`
+
+### 磁盘空间不足
+
+1. 检查磁盘使用率：`df -h`
+2. 查看段文件：`ls -lh /data/ig_cam/frames/`
+3. 手动清理旧段（保留最近 N 个）
+
+---
+
+## 相关文档
+
+- `MARKET_CAMERA_V2.md` — Market Camera v2 实现总结
+- `WSS_ACCESS_GUIDE.md` — WebSocket 访问指南
+- `HTTPS_WSS_SETUP_COMPLETE.md` — HTTPS/WSS 配置指南
+- `TRADE_FRAME_SCHEMA.md` — 交易帧数据结构（legacy）
+- `experiments/live/API_DOCUMENTATION.md` — 详细 API 文档
 
 ---
 
 ## 许可证
 
-MIT License - 详见 [LICENSE](LICENSE) 文件
+与主项目保持一致。
 
 ---
 
-## 联系方式
+## 更新日志
 
-- **作者**: 刘刚
-- **邮箱**: garylauchina@gmail.com
-- **项目**: Infinite Game
-
----
-
-**最后更新**: 2026-01-22
+- **2026-01-24**: Market Camera v2 实现
+  - 滑动窗口聚合器
+  - Metric + Frame 双消息流
+  - 分段存储（frames/ + metrics/）
+  - HTTP manifest/segment API
