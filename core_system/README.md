@@ -1,8 +1,13 @@
 # 核心系统代码说明
 
-本目录包含 Infinite Game V5.0 的核心实现文件（已锁定版本）。
+本目录包含 Infinite Game V5.2 的核心实现文件。
 
-**代码说明**：本目录包含 V5.0 核心系统代码的已锁定版本，用于研究文档参考和实验复现。
+**当前版本**：V5.2（开发中）
+
+**V5.2 新特性**：
+- 并行探针机制（K probes per tick）
+- 体验更新：失败不直接惩罚，通过 success_rate 和 dispersion 间接影响
+- Chaos Factor：惩罚结构塌缩而非失败率
 
 ## 架构说明
 
@@ -16,18 +21,25 @@
 ### main.py
 主模拟器，包含 `V5MarketSimulator` 类：
 - **统一管理**：统一管理所有逻辑（规则执行、状态更新、玩家管理）
+- **V5.2 新参数**：`probe_count`（K值）、`probe_count_random`（是否随机化K）
 - 初始3个玩家（RandomExperiencePlayer）
+- **V5.2 新方法**：`sample_probes()` - 多探针成交判定
 - 使用 `chaos_rules.compute_match_prob` 计算成交概率
-- 混乱因子管理器 `ChaosFactor`
+- 混乱因子管理器 `ChaosFactor`（V5.2支持collapse_proxy）
 - 参与调整阈值：ADD_PLAYER_THRESHOLD = 0.35, REMOVE_PLAYER_THRESHOLD = 0.15
 - 结构密度计算器 `StructureMetrics`
-- 复杂度计算频率：每500 ticks（从每100 ticks优化）
+- 复杂度计算频率：每500 ticks
 
 ### random_player.py
 `RandomExperiencePlayer` 类（市场先生的分身）：
+- **V5.2 新参数**：`probe_count`（K值）、`probe_count_random`
+- **V5.2 新方法**：`generate_probes()` - 生成K个并行探针
+- **V5.2 新数据类**：`ProbeResult` - 探针结果聚合
 - 纯随机报价（价格范围：40000-60000）
-- 体验更新：match_reward + fee_penalty + structure_reward + volatility_reward + liquidity_reward
-- EMA平滑：0.98 * old + 0.02 * new
+- **V5.2 体验更新**：`instant_reward = w₁*success_rate + w₂*match_dispersion + w₃*complexity`
+  - 失败不直接惩罚！通过 success_rate 间接影响
+  - 权重：w₁=0.4, w₂=0.2, w₃=0.4
+- EMA平滑：0.98 * old + 0.02 * new（保持不变）
 - 体验历史记录：最近50次行动和体验
 
 ### state_engine.py
@@ -46,16 +58,22 @@
 
 ### chaos_rules.py
 混乱因子规则集（**实际使用的成交概率计算**）：
+- **V5.2 新增**：`compute_collapse_proxy()` - 计算结构塌缩代理
+  - 公式：`collapse = |2 * H_norm - 1|`
+  - 高熵区分：H_norm > 0.8 时，用 `active_protocols_ratio` 区分噪声与健康
 - `compute_chaos_factor`：计算报价分散度、方向熵、规模过载
   - 报价分散度：相对分散度（2%为健康基准）
   - 方向熵：买卖方向分布的熵
   - 规模过载：行动过载和玩家过载的加权
 - `ChaosFactor` 类：动态混乱因子管理器
-  - 基础混乱因子：0.08（从0.15降低）
-  - 动态调整：根据玩家数量、平均体验、时间衰减调整
-- `compute_match_prob`：完整统计版成交概率（**实际使用的版本**）
+  - 基础混乱因子：0.08
+  - **V5.2 新增**：`collapse_sensitivity` 参数（γ，塌缩敏感度）
+  - **V5.2 新增**：`set_match_prices()`、`set_active_protocols_ratio()` 方法
+  - **V5.2 公式**：`chaos = base_chaos * (1 + γ * collapse_proxy) * multiplier`
+  - 动态调整：根据玩家数量、平均体验、时间衰减、**结构塌缩**调整
+- `compute_match_prob`：完整统计版成交概率
   - 价格优先（40%权重）：指数衰减，exp(-4 * price_dist)
-  - 混乱惩罚（动态调整）：最大40%惩罚（从60%降低）
+  - 混乱惩罚（动态调整）：最大40%惩罚
   - 状态修正：流动性提升（+30%）、波动率调整（中等波动最佳）
 
 ### metrics.py
@@ -103,8 +121,20 @@
 - **减少玩家**：`avg_exp < 0.15` 且 `player_count > 2`
 - **最小玩家保护**：`player_count <= 2` 且 `avg_exp > 0.25` 时强制加人
 
-### 体验更新公式
+### 体验更新公式（V5.2）
 `RandomExperiencePlayer.update_experience` 计算即时体验：
+
+**V5.2 公式**（使用 ProbeResult）：
+```python
+# 失败不直接惩罚！
+instant_reward = (
+    0.4 * success_rate +      # 成功率 [0,1]
+    0.2 * match_dispersion +  # 成交分布离散度 [0,1]
+    0.4 * complexity          # 世界结构密度 [0,1]
+)
+```
+
+**V5.0 兼容公式**（单探针模式）：
 ```python
 instant_experience = (
     +1.0 if matched else -0.3  # 成交快感 / 未成交挫败
@@ -129,6 +159,20 @@ instant_experience = (
 
 ## 数据流
 
+### V5.2 数据流
+```
+每个Tick：
+1. 更新 ChaosFactor（成交价格历史 + 活跃簇占比）
+2. 所有玩家生成K个探针 → all_probes
+3. 多探针成交判定（每个探针独立判定）→ probe_results
+4. 设置 ProbeResult 并更新体验 → experience_score
+5. 状态更新（价格、波动率、流动性、不平衡度）→ s_{t+1}
+6. 更新结构密度轨迹 → structure_metrics
+7. 每500 ticks：计算复杂度 → complexity
+8. 每adjust_interval ticks：调整玩家数量
+```
+
+### V5.0 数据流（兼容）
 ```
 每个Tick：
 1. 所有玩家报价（纯随机）→ actions
@@ -137,7 +181,7 @@ instant_experience = (
 4. 状态更新（价格、波动率、流动性、不平衡度）→ s_{t+1}
 5. 更新结构密度轨迹 → structure_metrics
 6. 每500 ticks：计算复杂度 → complexity
-7. 每adjust_interval ticks：调整玩家数量（根据平均体验）
+7. 每adjust_interval ticks：调整玩家数量
 ```
 
 ## 关键参数
@@ -164,8 +208,45 @@ instant_experience = (
    - 使用warm start（缓存上次聚类中心）
    - max_iter=100
 
+## V5.2 关键公式
+
+### 并行探针机制
+```
+每个 Player 每 tick:
+  K = probe_count  # K ≥ 1，固定或弱随机
+  for i in 1..K:
+    probe_i = generate_probe()  # 随机价格、随机方向、size=1
+    success_i ~ Bernoulli(p_match(probe_i, state))
+```
+
+### 体验更新（V5.2）
+```
+# 失败不直接惩罚！
+instant_reward = w₁ * success_rate + w₂ * match_dispersion + w₃ * complexity
+
+其中：
+  success_rate = n_success / K
+  match_dispersion = std(match_prices) / price_range
+  w₁ = 0.4, w₂ = 0.2, w₃ = 0.4
+```
+
+### 结构塌缩代理（V5.2）
+```
+collapse = |2 * H_norm - 1|
+
+if H_norm > 0.8:
+    collapse *= active_protocols_ratio
+    # 高活跃 → 均匀噪声（塌缩）
+    # 低活跃 → 多结构有骨架（健康）
+```
+
+### Chaos Factor（V5.2）
+```
+chaos = base_chaos * (1 + γ * collapse_proxy) * multiplier
+```
+
 ## 版本信息
 
-- **代码版本**：V5.0 Phase 1（已锁定）
-- **版本**：V5.0 Phase 1（已锁定）
-- **最后更新**：2025-01-21
+- **当前版本**：V5.2（开发中）
+- **基准版本**：V5.0（main分支，已锁定）
+- **最后更新**：2026-01-25

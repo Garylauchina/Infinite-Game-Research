@@ -6,10 +6,14 @@
 3. 在线计算，O(1) 更新
 """
 
+import os
 import numpy as np
 from sklearn.cluster import KMeans
 from collections import defaultdict, deque
-from typing import List
+from typing import List, Tuple, Dict, Optional
+
+# Debug 开关：IG_DEBUG_STRUCT=1 时启用结构审计字段输出
+IG_DEBUG_STRUCT = os.environ.get('IG_DEBUG_STRUCT', '0') == '1'
 
 class StructureMetrics:
     def __init__(self, window_size=5000, n_clusters=5, cluster_update_interval=500, n_init=3):
@@ -123,6 +127,89 @@ class StructureMetrics:
         )
         
         return np.clip(complexity, 0.0, 1.0)
+    
+    def compute_complexity_debug(self) -> Tuple[float, Dict]:
+        """
+        V5.2 审计版：计算结构密度，返回 debug 字段
+        
+        返回：
+            (complexity_final, dbg)
+            
+        dbg 字段：
+            - assign_len: int                    # len(self.cluster_assignments)
+            - n_clusters: int                    # self.n_clusters
+            - active_protocols: int              # counts > 2% 的簇数量
+            - active_ratio_struct: float         # active_protocols / n_clusters
+            - transfer_entropy_norm: float       # 归一化后的 transfer_entropy
+            - uniformity: float                  # 1 - max(stay_dist)
+            - protocol_score: float              # active_ratio_struct
+            - complexity_final: float            # clip 后 complexity
+        """
+        dbg = {
+            'assign_len': len(self.cluster_assignments),
+            'n_clusters': self.n_clusters,
+            'active_protocols': 0,
+            'active_ratio_struct': 0.0,
+            'transfer_entropy_norm': 0.0,
+            'uniformity': 0.0,
+            'protocol_score': 0.0,
+            'complexity_final': 0.3,
+        }
+        
+        if len(self.cluster_assignments) < 200:
+            return 0.3, dbg
+            
+        clusters = np.array(self.cluster_assignments)
+        
+        # 1. 有效协议数 (活跃簇)
+        unique_clusters, counts = np.unique(clusters, return_counts=True)
+        active_protocols = int(np.sum(counts > len(clusters) * 0.02))  # >2%活跃
+        protocol_score = active_protocols / self.n_clusters
+        
+        dbg['active_protocols'] = active_protocols
+        dbg['active_ratio_struct'] = float(np.clip(protocol_score, 0.0, 1.0))
+        dbg['protocol_score'] = dbg['active_ratio_struct']
+        
+        # 2. 转移熵
+        trans_count = defaultdict(int)
+        for i in range(len(clusters)-1):
+            trans_count[(clusters[i], clusters[i+1])] += 1
+            
+        trans_matrix = np.zeros((self.n_clusters, self.n_clusters))
+        for (i,j), cnt in trans_count.items():
+            if i < self.n_clusters and j < self.n_clusters:
+                trans_matrix[i,j] = cnt
+            
+        # 行归一化
+        row_sums = trans_matrix.sum(axis=1, keepdims=True)
+        trans_prob = np.divide(trans_matrix, row_sums, 
+                              out=np.zeros_like(trans_matrix), 
+                              where=row_sums!=0)
+        
+        # 熵 (忽略零行)
+        entropy = -np.sum(trans_prob * np.log2(trans_prob + 1e-8), axis=1)
+        entropy = entropy[row_sums.flatten() > 0]
+        transfer_entropy = np.mean(entropy) / np.log2(self.n_clusters) if len(entropy) > 0 else 0
+        
+        dbg['transfer_entropy_norm'] = float(np.clip(transfer_entropy, 0.0, 1.0))
+        
+        # 3. 驻留均匀度
+        stay_dist = counts / len(clusters)
+        uniformity = 1.0 - np.max(stay_dist)
+        
+        dbg['uniformity'] = float(np.clip(uniformity, 0.0, 1.0))
+        
+        # 综合复杂度
+        complexity = (
+            0.4 * protocol_score +
+            0.4 * transfer_entropy + 
+            0.2 * uniformity
+        )
+        
+        complexity_final = float(np.clip(complexity, 0.0, 1.0))
+        dbg['complexity_final'] = complexity_final
+        
+        return complexity_final, dbg
     
     def get_cluster_info(self) -> dict:
         """获取聚类信息（用于调试）"""
