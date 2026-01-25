@@ -279,6 +279,18 @@ def main():
     
     args = parser.parse_args()
     
+    # V5.2 审计：打印环境变量配置
+    probe_count = int(os.environ.get('IG_PROBE_COUNT', '1'))
+    debug_struct = os.environ.get('IG_DEBUG_STRUCT', '0') == '1'
+    print(f"\n{'='*80}")
+    print(f"V5.2 实验配置:")
+    print(f"  IG_PROBE_COUNT (K) = {probe_count}")
+    print(f"  IG_DEBUG_STRUCT = {debug_struct}")
+    print(f"  seeds = {args.seed_start} to {args.seed_start + args.seeds - 1}")
+    print(f"  ticks = {args.ticks}")
+    print(f"  output = {args.output}")
+    print(f"{'='*80}\n")
+    
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
     

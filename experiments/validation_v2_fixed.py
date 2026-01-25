@@ -30,6 +30,10 @@ os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['OPENBLAS_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 
+# V5.2 审计支持：从环境变量读取 probe_count (K值)
+IG_PROBE_COUNT = int(os.environ.get('IG_PROBE_COUNT', '1'))
+IG_DEBUG_STRUCT = os.environ.get('IG_DEBUG_STRUCT', '0') == '1'
+
 # 配置matplotlib缓存目录
 cache_dir = Path('.matplotlib_cache')
 cache_dir.mkdir(exist_ok=True)
@@ -72,7 +76,9 @@ class ComplexSystemValidatorV2Fixed:
         
         actual_ticks = ticks if ticks is not None else self.ticks
         
-        sim = V5MarketSimulator(ticks=actual_ticks, adjust_interval=2000, MAX_N=None)
+        # V5.2: 支持 probe_count 参数
+        sim = V5MarketSimulator(ticks=actual_ticks, adjust_interval=2000, MAX_N=None,
+                               probe_count=IG_PROBE_COUNT)
         
         if fixed_N is not None:
             from core_system.random_player import RandomExperiencePlayer
@@ -82,7 +88,8 @@ class ComplexSystemValidatorV2Fixed:
                 if current_N < fixed_N:
                     while len(sim.active_players) < fixed_N:
                         sim.active_players.append(
-                            RandomExperiencePlayer(len(sim.active_players))
+                            RandomExperiencePlayer(len(sim.active_players), 
+                                                  probe_count=IG_PROBE_COUNT)
                         )
                 elif current_N > fixed_N:
                     sim.active_players = sim.active_players[:fixed_N]

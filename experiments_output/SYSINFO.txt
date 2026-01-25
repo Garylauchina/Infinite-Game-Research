@@ -1,0 +1,8 @@
+Darwin liugangdeiMac.local 25.2.0 Darwin Kernel Version 25.2.0: Tue Nov 18 21:08:48 PST 2025; root:xnu-12377.61.12~1/RELEASE_ARM64_T8132 arm64
+Python 3.12.7
+=== Git Info ===
+b7e1033d08cb6a17b26ac3c9564d2cae60dd5b53
+ M experiments/run_phase_analysis.py
+ M experiments/validation_v2_fixed.py
+?? experiments_output/
+b7e1033 audit: split H_price vs H_transfer and debug collapse/complexity
