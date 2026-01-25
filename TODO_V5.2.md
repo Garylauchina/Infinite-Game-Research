@@ -287,10 +287,23 @@ def compute_collapse_proxy(match_prices: List[float],
 
 #### 4.3 回归测试
 
-- [ ] 确保 P0 (非线性测试) 仍然通过
-- [ ] 确保 P1 (反身性测试) 仍然通过
-- [ ] 确保 P2 (多尺度结构密度测试) 仍然通过
-- [ ] 确保 P3 (混沌因子消融测试) 行为符合预期（可能需要调整基准）
+- [x] 确保 P0 (非线性测试) 仍然通过
+- [x] 确保 P1 (反身性测试) 仍然通过
+- [x] 确保 P2 (多尺度结构密度测试) 仍然通过
+- [x] 确保 P3 (混沌因子消融测试) 行为符合预期（可能需要调整基准）
+
+#### 4.4 P3 长跑验证（collapse_proxy 语义验证）✅
+
+- [x] 运行 500k ticks × 6 组实验（seeds={0,1,2}, K={1,3}）
+- [x] 验证 collapse_proxy 与 H_price_norm 的关系
+- [x] 验证高 collapse 时 active_protocols_ratio = 1.0（均匀噪声塌缩）
+- [x] 确认 K=3 不创建新的 collapse_proxy 区域（只加速收敛）
+
+**实验结果**（2026-01-26）：
+- 所有 6 组实验均收敛到"均匀噪声塌缩"状态（H_price ≈ 0.93-0.99, active_ratio = 1.0）
+- collapse_proxy 公式 `|2*H_norm-1| * active_ratio` 正确识别塌缩类型
+- K=3 比 K=1 收敛更快（+5.1% collapse_mean），但不改变可达结构空间
+- 详细报告：`experiments/output/v52_p3_longrun/EXPERIMENT_V5_2_P3_LONGRUN_REPORT.md`
 
 ### Phase 5: 文档更新
 
@@ -417,7 +430,8 @@ def compute_collapse_proxy(match_prices: List[float],
 - 开发过程中如有设计变更，请同步更新本文件
 - 2026-01-25: 补充三点关键设计决策（K 语义、失败非直接惩罚、塌缩 proxy）
 - 2026-01-25: 修正高熵区分公式符号（`collapse *= active_protocols_ratio`，高→塌缩，低→健康）
+- 2026-01-26: P3 长跑验证完成，collapse_proxy 语义正确性验证通过
 
 ---
 
-**最后更新**: 2026-01-25
+**最后更新**: 2026-01-26

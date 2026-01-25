@@ -1,0 +1,62 @@
+{
+  "experiment_type": "v52_p3_longrun",
+  "created_at": "2026-01-26T02:42:29.938487",
+  "total_runs": 6,
+  "params": {
+    "ticks": 500000,
+    "downsample": 10,
+    "seeds": [
+      0,
+      1,
+      2
+    ],
+    "K_list": [
+      1,
+      3
+    ]
+  },
+  "runs": [
+    {
+      "seed": 0,
+      "K": 1,
+      "file": "v52_p3_longrun_seed0_K1_ticks500000.jsonl.zst",
+      "collapse_mean": 0.9230232497498603,
+      "collapse_p95": 0.9230232497498603
+    },
+    {
+      "seed": 0,
+      "K": 3,
+      "file": "v52_p3_longrun_seed0_K3_ticks500000.jsonl.zst",
+      "collapse_mean": 0.9702169965109728,
+      "collapse_p95": 0.9702169965109728
+    },
+    {
+      "seed": 1,
+      "K": 1,
+      "file": "v52_p3_longrun_seed1_K1_ticks500000.jsonl.zst",
+      "collapse_mean": 0.9857840687063513,
+      "collapse_p95": 0.9857840687063513
+    },
+    {
+      "seed": 1,
+      "K": 3,
+      "file": "v52_p3_longrun_seed1_K3_ticks500000.jsonl.zst",
+      "collapse_mean": 0.9804902989500275,
+      "collapse_p95": 0.9804902989500275
+    },
+    {
+      "seed": 2,
+      "K": 1,
+      "file": "v52_p3_longrun_seed2_K1_ticks500000.jsonl.zst",
+      "collapse_mean": 0.8535058381919454,
+      "collapse_p95": 0.8535058381919454
+    },
+    {
+      "seed": 2,
+      "K": 3,
+      "file": "v52_p3_longrun_seed2_K3_ticks500000.jsonl.zst",
+      "collapse_mean": 0.9537229623566301,
+      "collapse_p95": 0.9537229623566301
+    }
+  ]
+}

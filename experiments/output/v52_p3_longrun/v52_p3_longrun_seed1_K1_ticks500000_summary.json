@@ -1,0 +1,49 @@
+{
+  "experiment": {
+    "seed": 1,
+    "K": 1,
+    "ticks": 500000,
+    "downsample": 10,
+    "actual_samples": 20001,
+    "lines_written": 20001
+  },
+  "params": {
+    "n_clusters": 5,
+    "window_size": 5000,
+    "cluster_update_interval": 500,
+    "adjust_interval": 2000,
+    "initial_players": 3,
+    "add_threshold": 0.35,
+    "remove_threshold": 0.15,
+    "price_min": 40000.0,
+    "price_max": 60000.0
+  },
+  "params_hash": "beb549de",
+  "git_commit": "58c05017",
+  "timing": {
+    "start_time": "2026-01-26T00:33:27.004874",
+    "end_time": "2026-01-26T00:47:34.692550",
+    "duration_seconds": 847.687676
+  },
+  "no_trade_ratio": 0.000768,
+  "collapse_stats": {
+    "mean": 0.9857840687063513,
+    "std": 0.0,
+    "p50": 0.9857840687063513,
+    "p95": 0.9857840687063513,
+    "max": 0.9857840687063513
+  },
+  "correlations": {},
+  "high_collapse_analysis": {
+    "count": 1,
+    "H_price_mean": 0.9928920343531756,
+    "H_price_near_0": 0.0,
+    "H_price_near_1": 1.0,
+    "active_ratio_mean": 1.0
+  },
+  "stop_conditions": {
+    "stable_checks": 0,
+    "collapse_event_detected": true,
+    "aborted": false
+  }
+}
