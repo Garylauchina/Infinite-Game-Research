@@ -56,6 +56,7 @@
 Infinite-Game-Research/
 ├── README.md                      # 项目导航（本文件）
 ├── LICENSE                        # MIT 许可证
+├── TODO_V5.2.md                   # V5.2 开发计划（开发分支）
 ├── THEORETICAL_FRAMEWORK.md       # 理论框架文档
 ├── RESEARCH_PAPER.md              # 研究论文（草稿）
 ├── TECHNICAL_DOCUMENTATION.md     # 技术文档
@@ -166,8 +167,22 @@ Infinite-Game-Research/
 
 ## 版本信息
 
-- **当前版本**: V5.0 (GameTheoryMarket)
+- **稳定版本**: V5.0 (GameTheoryMarket) - `main` 分支
+- **开发版本**: V5.2 (Interaction Impedance) - `v5.2` 分支
 - **核心范式**: 规则驱动 + 随机试玩 + 状态格子行走
+
+### V5.2 开发计划
+
+V5.2 版本正在 `v5.2` 分支上开发，主要目标是引入**交互阻抗（Interaction Impedance）**机制：
+
+- **并行探针机制**：每个 Player 每 tick 生成 K 次并行报价探针
+- **反馈分布**：成交判定从单次伯努利变为 K 次独立伯努利
+- **失败即结构**：体验更新允许"失败也是结构"，失败是世界硬度的体现
+- **Chaos Factor 修订**：从惩罚失败率改为惩罚结构塌缩
+
+详细开发计划请参考 [TODO_V5.2.md](TODO_V5.2.md)。
+
+**设计边界**：不引入智能 agent、不引入显式订单簿、不引入回溯机制、不破坏 P0-P3 理论前提。
 
 ---
 
@@ -311,4 +326,4 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-**最后更新**: 2026-01-22
+**最后更新**: 2026-01-25
