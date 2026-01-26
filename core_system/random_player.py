@@ -57,20 +57,41 @@ class RandomExperiencePlayer:
             return np.random.randint(1, self.probe_count + 1)
         return self.probe_count
     
-    def generate_probes(self, s_t: MarketState) -> List[Action]:
+    def generate_probes(self, s_t: MarketState, k: int = None, rng: np.random.Generator = None) -> List[Action]:
         """
         V5.2 新方法：生成 K 个并行探针
         
         K 的语义：行为采样密度，不是订单厚度
         - K=1: 与 v5.0 行为一致
         - K>1: 更密集地试探价格区间
-        """
-        k = self._sample_k()
-        probes = []
         
+        Args:
+            s_t: 当前市场状态
+            k: 外部传入的 K 值（如果为 None，使用内部 _sample_k()）
+            rng: 外部传入的随机数生成器（如果为 None，使用 np.random）
+        
+        V5.2 Adaptive-K 支持：
+        - 当 k 由外部传入时，player 不负责决定 k 的大小
+        - player 只负责"生成 k 次独立试探"
+        """
+        # 确定 K 值
+        if k is None:
+            k = self._sample_k()
+        else:
+            k = max(1, int(k))  # 确保 k >= 1
+        
+        # 选择随机源
+        if rng is None:
+            rand_uniform = np.random.uniform
+            rand_choice = np.random.choice
+        else:
+            rand_uniform = rng.uniform
+            rand_choice = rng.choice
+        
+        probes = []
         for _ in range(k):
-            price = np.random.uniform(SIMPLEST_RULES['price_min'], SIMPLEST_RULES['price_max'])
-            side = np.random.choice(['buy', 'sell'])
+            price = rand_uniform(SIMPLEST_RULES['price_min'], SIMPLEST_RULES['price_max'])
+            side = rand_choice(['buy', 'sell'])
             probe = Action(price=price, side=side, qty=1.0)
             probes.append(probe)
         
