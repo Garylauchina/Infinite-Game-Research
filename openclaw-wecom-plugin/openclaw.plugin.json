@@ -1,0 +1,27 @@
+{
+  "id": "wecom",
+  "name": "WeCom (企业微信)",
+  "version": "1.0.0",
+  "description": "OpenClaw WeCom (企业微信) channel plugin - enables bidirectional messaging with WeChat Work",
+  "author": "OpenClaw Community",
+  "license": "MIT",
+  "channels": ["wecom"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "corpId": { "type": "string", "description": "企业微信 CorpID" },
+      "agentId": { "type": "string", "description": "应用 AgentId" },
+      "secret": { "type": "string", "description": "应用 Secret" },
+      "token": { "type": "string", "description": "回调 Token" },
+      "encodingAESKey": { "type": "string", "description": "回调 EncodingAESKey (43位)" }
+    }
+  },
+  "uiHints": {
+    "corpId": { "label": "Corp ID", "placeholder": "wwxxxxxxxxxxxxxxxxx" },
+    "agentId": { "label": "Agent ID", "placeholder": "1000002" },
+    "secret": { "label": "Secret", "sensitive": true },
+    "token": { "label": "Callback Token", "sensitive": true },
+    "encodingAESKey": { "label": "Encoding AES Key", "sensitive": true }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@openclaw/wecom",
+  "version": "1.0.0",
+  "description": "OpenClaw WeCom (企业微信) channel plugin",
+  "type": "module",
+  "main": "./index.ts",
+  "dependencies": {
+    "xml2js": "^0.6.2"
+  },
+  "devDependencies": {
+    "openclaw": "workspace:*",
+    "@types/xml2js": "^0.4.14"
+  },
+  "openclaw": {
+    "extensions": ["./index.ts"],
+    "channel": {
+      "id": "wecom",
+      "label": "WeCom",
+      "selectionLabel": "WeCom / 企业微信 (WeChat Work)",
+      "docsPath": "/channels/wecom",
+      "docsLabel": "wecom",
+      "blurb": "企业微信 (WeChat Work) enterprise messaging integration.",
+      "aliases": ["wecom", "wechat-work", "wework"],
+      "order": 36,
+      "quickstartAllowFrom": true
+    },
+    "install": {
+      "npmSpec": "@openclaw/wecom",
+      "localPath": "extensions/wecom",
+      "defaultChoice": "local"
+    }
+  }
+}
